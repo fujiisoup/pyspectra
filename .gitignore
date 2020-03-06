@@ -1,0 +1,10 @@
+# caches
+__pycache__
+.cache
+.benchmarks
+.pytest_cache
+
+# install
+pyspectra.egg-info
+build
+dist
