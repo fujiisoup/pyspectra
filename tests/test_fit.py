@@ -60,11 +60,11 @@ def test_multipeak_nnls(peaks, width, noise):
 
 
 @pytest.mark.parametrize(['peaks', 'width', 'noise'], [
-    (((3, 10), (20, 3), (60, 3)), 1, 0.01)
+    (((3, 10), (20, 3), (60, 3)), 2, 0.01)
 ])
 def test_multipeak_nnls_fitwidth(peaks, width, noise):
-    x = np.linspace(0, 100, 301)
-    y = np.random.RandomState(0).randn(301) * noise
+    x = np.linspace(0, 100, 101)
+    y = np.random.RandomState(0).randn(101) * noise
     for peak in peaks:
         y = y + profiles.Gauss(x, peak[1], peak[0], width, 0)
 
@@ -74,3 +74,34 @@ def test_multipeak_nnls_fitwidth(peaks, width, noise):
     assert np.allclose(res['width'], width, atol=0.03, rtol=0.03)
 
 
+def test_discretize():
+    x = np.linspace(0, 1, 31)
+    coef = np.zeros_like(x)
+    coef[4] = 1
+    coef[5] = 1
+    centers_expected = [(x[4] + x[5]) / 2.0]
+    intensities_expected = [2]
+    centers, intensities = fit._discretize_coef(x, coef)
+    assert np.allclose(centers, centers_expected)
+    assert np.allclose(intensities, intensities_expected)
+
+    coef[13] = 1.0
+    coef[14] = 2.0
+    centers_expected = np.concatenate([
+        centers_expected, [(x[13] + x[14] * 2) / 3.0]])
+    intensities_expected = np.concatenate([
+        intensities_expected,  [3]
+    ])
+    centers, intensities = fit._discretize_coef(x, coef)
+    assert np.allclose(centers, centers_expected)
+    assert np.allclose(intensities, intensities_expected)
+
+    coef[20] = 0.1
+    coef[21] = 2.0
+    coef[23] = 3.0
+    centers_expected = np.concatenate([
+        centers_expected, 
+        [(x[20] * 0.1 + x[21] * 2 + x[23] * 3) / 5.1]])
+    intensities_expected = np.concatenate([
+        intensities_expected,  [5.1]
+    ])

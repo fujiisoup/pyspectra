@@ -139,9 +139,7 @@ def _multipeak_nnls1(x, y, width, profile='gauss', alpha=0.0,
             alpha=alpha, fit_intercept=intercept,
             positive=True, max_iter=max_iter, tol=tol)
         model.fit(X=mat, y=y)
-        result = {'coef': model.coef_[n: -n] / max_height,
-                  'peak': model.coef_[n: -n] + model.intercept_,
-                  'fit': model.predict(X=mat)}
+        intercept = model.intercept_
     else:
         if intercept == 'min':
             intercept = np.min(y)
@@ -151,10 +149,35 @@ def _multipeak_nnls1(x, y, width, profile='gauss', alpha=0.0,
             alpha=alpha, fit_intercept=False,
             positive=True, max_iter=max_iter, tol=tol)
         model.fit(X=mat, y=y - intercept)
-        result = {'coef': model.coef_[n: -n] / max_height,
-                  'peak': model.coef_[n: -n] + intercept,
-                  'fit': model.predict(X=mat) + intercept}
-    
+
+    result = {'coef': model.coef_[n: -n] / max_height,
+              'peak': model.coef_[n: -n] + intercept,
+              'fit': model.predict(X=mat) + intercept,
+              'intercept': intercept}
+
     # loss
     result['loss'] = np.sum((result['fit'] - y)**2) / (2 * len(y)) + alpha * np.sum(model.coef_)
+    
+    # discretized
+    centers, intensities = _discretize_coef(x, result['coef'])
+    result['center'] = centers
+    result['intensity'] = intensities
+    result['peak_height'] = intensities / max_height + intercept
     return result
+
+
+def _discretize_coef(x, coef):
+    """
+    From x and coef, which is almost zero, estimate the discrete line center and intensity
+    """
+    nonzero = np.arange(len(x))
+    nonzero = np.concatenate([[-1], nonzero[coef > 0], [len(x) - 1]])
+    indexes = nonzero[:-1][np.diff(nonzero) > 1] + 1
+    centers = []
+    intensities = []
+
+    for i in range(len(indexes) - 1):
+        sl = slice(indexes[i], indexes[i+1])
+        centers.append(np.sum(x[sl] * coef[sl]) / np.sum(coef[sl]))
+        intensities.append(np.sum(coef[sl]))
+    return centers, intensities
