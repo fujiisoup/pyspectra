@@ -91,7 +91,7 @@ def multipeak_nnls(x, y, width=None, fit_width=False, profile='gauss', alpha=0.0
     profile: one of {'gauss', 'lorentz', 'voigt'}
     alpha: regularization factor
     delta_sigma: float. How far wings should be considered. Default 5
-    intercept: one of {'fit', 'min'} or float
+    intercept: one of {'fit', 'min', 'fit_slope'} or float
     """
     x = np.asanyarray(x)
     y = np.asanyarray(y)
@@ -148,6 +148,8 @@ def _multipeak_nnls1(x, y, width, profile='gauss', alpha=0.0,
             positive=True, max_iter=max_iter, tol=tol)
         model.fit(X=mat, y=y)
         intercept = model.intercept_
+    elif intercept == 'fit_slope':
+        raise NotImplementedError
     else:
         if intercept == 'min':
             intercept = np.min(y)
