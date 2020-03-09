@@ -73,6 +73,11 @@ def test_multipeak_nnls_fitwidth(peaks, width, noise):
     assert np.sum(res['coef'] > 0) == len(peaks)
     assert np.allclose(res['width'], width, atol=0.03, rtol=0.03)
 
+    res = fit.multipeak_nnls(x, y, width=width * 1.3, alpha=0.001, 
+                             fit_width=True, fit_method='Nelder-Mead')
+    assert np.sum(res['coef'] > 0) == len(peaks)
+    assert np.allclose(res['width'], width, atol=0.03, rtol=0.03)
+
 
 def test_discretize():
     x = np.linspace(0, 1, 31)
@@ -81,9 +86,10 @@ def test_discretize():
     coef[5] = 1
     centers_expected = [(x[4] + x[5]) / 2.0]
     intensities_expected = [2]
-    centers, intensities = fit._discretize_coef(x, coef)
+    centers, intensities, nonzero_points = fit._discretize_coef(x, coef)
     assert np.allclose(centers, centers_expected)
     assert np.allclose(intensities, intensities_expected)
+    assert np.allclose(nonzero_points, [2])
 
     coef[13] = 1.0
     coef[14] = 2.0
@@ -92,16 +98,21 @@ def test_discretize():
     intensities_expected = np.concatenate([
         intensities_expected,  [3]
     ])
-    centers, intensities = fit._discretize_coef(x, coef)
+    centers, intensities, nonzero_points = fit._discretize_coef(x, coef)
     assert np.allclose(centers, centers_expected)
     assert np.allclose(intensities, intensities_expected)
+    assert np.allclose(nonzero_points, [2, 2])
 
     coef[20] = 0.1
     coef[21] = 2.0
-    coef[23] = 3.0
+    coef[22] = 3.0
     centers_expected = np.concatenate([
         centers_expected, 
-        [(x[20] * 0.1 + x[21] * 2 + x[23] * 3) / 5.1]])
+        [(x[20] * 0.1 + x[21] * 2 + x[22] * 3) / 5.1]])
     intensities_expected = np.concatenate([
         intensities_expected,  [5.1]
     ])
+    centers, intensities, nonzero_points = fit._discretize_coef(x, coef)
+    assert np.allclose(centers, centers_expected)
+    assert np.allclose(intensities, intensities_expected)
+    assert np.allclose(nonzero_points, [2, 2, 3])

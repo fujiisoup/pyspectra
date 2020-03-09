@@ -70,6 +70,12 @@ def _make_template_matrix(template, size):
                              shape=(size, size + n - 1))
 
 
+def _robust_width(x, min_dx):
+    x2 = np.maximum(x, 0)
+    x2[0] += min_dx
+    return x2
+
+
 def multipeak_nnls(x, y, width=None, fit_width=False, profile='gauss', alpha=0.0,
                    delta_sigma=5.0, intercept='fit',
                    max_iter=1000, tol=0.0001, fit_method='Nelder-Mead'):
@@ -98,15 +104,16 @@ def multipeak_nnls(x, y, width=None, fit_width=False, profile='gauss', alpha=0.0
             x, y, width, profile, alpha,
             delta_sigma, intercept, max_iter, tol)
 
+    min_dx = np.mean(np.diff(x)) * 0.1
     # optimizing the width.
     width_init = np.atleast_1d(width)
     func = lambda w: _multipeak_nnls1(
-        x, y, w, profile, alpha, delta_sigma, intercept, max_iter, tol)['loss']
+        x, y, _robust_width(w, min_dx), profile, alpha, delta_sigma, intercept, max_iter, tol)['loss']
     res = optimize.minimize(func, width_init, method=fit_method)
     
     result = _multipeak_nnls1(
-        x, y, res['x'], profile, alpha, delta_sigma, intercept, max_iter, tol)
-    result['width'] = res['x']
+        x, y, _robust_width(res['x'], min_dx), profile, alpha, delta_sigma, intercept, max_iter, tol)
+    result['width'] = _robust_width(res['x'], min_dx)
     return result
 
 
@@ -118,6 +125,7 @@ def _multipeak_nnls1(x, y, width, profile='gauss', alpha=0.0,
         n = int(width / dx * delta_sigma)
     except TypeError:
         n = int((width[0] + width[1]) / dx * delta_sigma)
+    n = np.minimum(np.maximum(n, 3), len(x) // 2)
     t = np.arange(-n, n + 1) * dx
     
     if profile.lower() in ['gauss', 'gaussian']:
@@ -159,10 +167,11 @@ def _multipeak_nnls1(x, y, width, profile='gauss', alpha=0.0,
     result['loss'] = np.sum((result['fit'] - y)**2) / (2 * len(y)) + alpha * np.sum(model.coef_)
     
     # discretized
-    centers, intensities = _discretize_coef(x, result['coef'])
+    centers, intensities, nonzero_points = _discretize_coef(x, result['coef'])
     result['center'] = centers
     result['intensity'] = intensities
-    result['peak_height'] = intensities / max_height + intercept
+    result['peak_height'] = intensities * max_height + intercept
+    result['nonzero_points'] = nonzero_points
     return result
 
 
@@ -175,9 +184,11 @@ def _discretize_coef(x, coef):
     indexes = nonzero[:-1][np.diff(nonzero) > 1] + 1
     centers = []
     intensities = []
+    nonzero_points = []  # number of successive nonzero points
 
     for i in range(len(indexes) - 1):
         sl = slice(indexes[i], indexes[i+1])
         centers.append(np.sum(x[sl] * coef[sl]) / np.sum(coef[sl]))
         intensities.append(np.sum(coef[sl]))
-    return centers, intensities
+        nonzero_points.append((coef[sl] > 0).sum())
+    return np.array(centers), np.array(intensities), np.array(nonzero_points)
