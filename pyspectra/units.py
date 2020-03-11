@@ -72,3 +72,13 @@ def cm_to_nm(cm):
     The return wavelength is in cm
     """
     return 1 / cm * 1e7
+
+
+def eV_to_K(eV):
+    """ Convert eV to K """
+    return eV * 11600.0
+
+
+def K_to_eV(K):
+    """ Convert kelvin to eV """
+    return K / 11600.0
