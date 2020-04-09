@@ -7,17 +7,17 @@ J2EV = 6.24150962915265e18  # eV / J
 ALPHA = 7.2973525664e-3  # fine structure constant
 RATE_AU = 4.13413733E16  # inverse of time in atomic unit
 EV2CM = 8065.54429  # eV to cm^-1
-EH = 27.211386245988 / 2.0  # eV
+Eh = 27.211386245988  # hartree in eV [eV / hartree]
 
 
 def hartree_to_eV(hartree):
     """ Convert hartlee to eV """
-    return hartree * EH * 0.5
+    return hartree * Eh
 
 
 def eV_to_hartree(eV):
     """ Convert hartlee to eV """
-    return eV / (EH * 0.5)
+    return eV / Eh
 
 
 def eV_to_nm(eV):
