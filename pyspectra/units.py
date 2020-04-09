@@ -8,6 +8,9 @@ ALPHA = 7.2973525664e-3  # fine structure constant
 RATE_AU = 4.13413733E16  # inverse of time in atomic unit
 EV2CM = 8065.54429  # eV to cm^-1
 Eh = 27.211386245988  # hartree in eV [eV / hartree]
+e = 1.60217662e-19  # elementary charge in [C]
+Me = 9.10938356e-31  # electron mass in [kg]
+a0 = H / (2 * np.pi * Me * C * ALPHA)  # bohr radius in [m]
 
 
 def hartree_to_eV(hartree):

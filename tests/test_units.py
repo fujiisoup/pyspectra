@@ -13,3 +13,7 @@ def test(seed):
     x = rng.randn(3)
     actual = units.nm_to_eV(units.cm_to_nm(units.eV_to_cm(x)))
     assert np.allclose(x, actual)
+
+
+def test_misc():
+    assert np.allclose(units.a0, 5.291772109e-11)
