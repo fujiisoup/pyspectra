@@ -135,3 +135,23 @@ ATOMIC_MASS = [
     277,  #	Hassium	Hs	108
     ]
     # Read more: https://www.lenntech.com/periodic/mass/atomic-mass.htm#ixzz5FXLOrRO4
+
+
+ROMAN_NUMBER = [
+    '__dummy__',
+    'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+    'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX',
+    'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX',
+    'XXXI', 'XXXII', 'XXXIII', 'XXXIV', 'XXXV', 'XXXVI', 'XXXVII', 'XXXVIII', 'XXXIX', 'XL',
+    'XLI', 'XLII', 'XLIII', 'XLIV', 'XLV', 'XLVI', 'XLVII', 'XLVIII', 'XLIX', 'L',
+    'LI', 'LII', 'LIII', 'LIV', 'LV', 'LVI', 'LVII', 'LVIII', 'LIX', 'LX',
+    'LXI', 'LXII', 'LXIII', 'LXIV', 'LXV', 'LXVI', 'LXVII', 'LXVIII', 'LXIX', 'LXX',
+]
+
+def decode_charge(string):
+    """
+    Decode 'FeI' into 'Fe' and 0 (charge)
+    """
+    if string[:2] in ATOMIC_SYMBOLS:
+        return string[:2], ROMAN_NUMBER.index(string[2:]) - 1
+    return string[:1], ROMAN_NUMBER.index(string[1:]) - 1
