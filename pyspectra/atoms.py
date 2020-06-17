@@ -18,7 +18,7 @@ ATOMIC_SYMBOLS = [
     'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po',
     'At', 'Rn',
     # period 7
-    'Fr', 'Ra', 'Ac', 'Th', 'U'
+    'Fr', 'Ra', 'Ac', 'Th', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 
 ]
 
 
