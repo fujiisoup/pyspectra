@@ -3,7 +3,10 @@ Some simple fitting procedures
 """
 import numpy as np
 from scipy import optimize, sparse
-from sklearn import linear_model
+try:
+    from sklearn import linear_model
+except ImportError:
+    pass
 
 from .profiles import Gauss, Lorentz, Voigt
 
