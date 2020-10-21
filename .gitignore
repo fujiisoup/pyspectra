@@ -8,3 +8,6 @@ __pycache__
 pyspectra.egg-info
 build
 dist
+
+# data dir
+pyspectra/downloaded/*

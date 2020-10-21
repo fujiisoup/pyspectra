@@ -1,6 +1,20 @@
 import numpy as np
-from pyspectra import molecules
+from pyspectra import molecules, units, refractive_index, data
 
+
+def test_level():
+    # fulcher 
+    constants = data.diatomic_molecules('H2').sel(state='X 1g 1s2')
+    for key in constants:
+        print(key, constants[key].item())
+
+    upper = molecules.level('H2', 'd 3u 3p', 0, 1)
+    lower = molecules.level('H2', 'a 3g+ 2s', 0, 1)
+    wavelength = refractive_index.vacuum_to_air(
+        units.eV_to_nm(upper - lower))
+    print(wavelength, units.eV_to_nm(upper - lower))
+    assert np.allclose(601.8299, wavelength, atol=2e-3, rtol=0)
+    
 
 def test_OH_X2():
     """
