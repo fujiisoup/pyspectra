@@ -101,7 +101,8 @@ def get_levels(atom, nele):
     for c in data.coords:
         if ' ' in c:
             renames[c] = c.replace(' ', '')
-    return data.rename(renames).dropna('ilev')
+    
+    return data.rename(renames)
 
 
 def get_lines(atom, nele):
@@ -125,24 +126,22 @@ def get_lines(atom, nele):
     data = data.rename(renames)
     # unit should be in attrs
     renames = {}
-    renames['obs_wl_vac(nm)'] = 'obs_wl_vac'
-    renames['obs_wl_vac(nm)_uncertain'] = 'obs_wl_vac_uncertain'
-    renames['ritz_wl_vac(nm)'] = 'ritz_wl_vac'
-    renames['ritz_wl_vac(nm)_uncertain'] = 'ritz_wl_vac_uncertain'
+    renames['obs_wl_vac(nm)'] = 'wavelength'
+    renames['obs_wl_vac(nm)_uncertain'] = 'wavelength_uncertain'
+    renames['ritz_wl_vac(nm)'] = 'wavelength_ritz'
+    renames['ritz_wl_vac(nm)_uncertain'] = 'wavelength_ritz_uncertain'
     renames['Aki(s^-1)'] = 'Aki'
     renames['Aki(s^-1)_uncertain'] = 'Aki_uncertain'
     renames['S(a.u.)'] = 'S'
     renames['S(a.u.)_uncertain'] = 'S_uncertain'
     data = data.rename(renames)
-    data['obs_wl_vac'].attrs['unit'] = 'nm'
-    data['obs_wl_vac_uncertain'].attrs['unit'] = 'nm'
-    data['ritz_wl_vac'].attrs['unit'] = 'nm'
-    data['ritz_wl_vac_uncertain'].attrs['unit'] = 'nm'
+    data['wavelength'].attrs['unit'] = 'nm(vacuum)'
+    data['wavelength_ritz'].attrs['unit'] = 'nm(vacuum)'
     data['Aki'].attrs['unit'] = 's^-1'
     data['Aki_uncertain'].attrs['unit'] = 's^-1'
     data['S'].attrs['unit'] = 'a.u.'
     data['S_uncertain'].attrs['unit'] = 'a.u.'
-    return data
+    return data.swap_dims({'itrans': 'wavelength'})
 
 
 def parity_term(term):
@@ -224,16 +223,16 @@ def _parse_levels(lines):
 
     # convert to xarray
     energy = data.pop('Level (eV)')
-    da = xr.DataArray(energy, dims='ilev',
-                      coords={k: ('ilev', it) for k, it in data.items()
-                              if k != ''},
-                      attrs={'ionization_limit': ionization_limit,
-                             'ionization_limit_err': ionization_limit_err,
-                             'unit': 'eV'},
-                      name='energy')
-    if 'j' in da.coords:
-        da = da.rename({'j': 'J'})
-    return da
+                    
+    ds = xr.Dataset(data_vars={k: ('energy', it) for k, it in data.items()
+                               if k != ''},
+                    coords={'energy': ('energy', energy, {'unit': 'eV'})})
+    ds['ionization_energy'] = (), ionization_limit, {'unit': 'eV'}
+    ds['ionization_energy_err'] = (), ionization_limit_err, {'unit': 'eV'}
+
+    if 'j' in ds.coords:
+        ds = ds.rename({'j': 'J'})
+    return ds.dropna('energy')
 
 
 def _parse_lines(lines):
@@ -249,7 +248,6 @@ def _parse_lines(lines):
     if 'conf_k' in keys:
         data['parity_k'] = []
 
-    ionization_limit = None
     lines = [[it.strip("\"").strip() for it in line.split('\t')]
              for line in lines]
 

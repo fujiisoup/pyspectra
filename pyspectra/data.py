@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from .atoms import ATOMIC_SYMBOLS
+from . import units, refractive_index
 
 
 _default_cache_dir = os.sep.join(
@@ -24,12 +25,29 @@ def atom_levels(
         cache_dir)
 
 def atom_lines(
-        element, nele=None, force_download=False, source='nist',
+        element, nele=None, unit='nm(vacuum)',
+        force_download=False, source='nist',
         cache_dir=_default_cache_dir
     ):
-    return _atom(
+    ds = _atom(
         'lines', element, nele, force_download, source,
         cache_dir)
+    
+    keys = ['nm(air)', 'nm(vacuum)', 'eV', 'cm']
+    if unit not in keys:
+        raise NotImplementedError('unit {} is not supported. Supported units are {}.'.format(unit, keys))
+
+    if unit == 'nm(air)':
+        ds['wavelength'] = refractive_index.vacuum_to_air(ds['wavelength'])
+        ds['wavelength'].attrs['unit'] = 'nm(air)'
+    elif unit == 'eV':
+        ds['wavelength'] = units.nm_to_eV(ds['wavelength'])
+        ds['wavelength'].attrs['unit'] = 'eV'
+    elif unit == 'cm':
+        ds['wavelength'] = units.nm_to_cm(ds['wavelength'])
+        ds['wavelength'].attrs['unit'] = 'cm^{-1}'
+    return ds
+
 
 def _atom(
         kind,
