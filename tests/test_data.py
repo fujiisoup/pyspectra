@@ -37,4 +37,7 @@ def test_atom_lines():
 
 def test_atom_lines_uncertainty():
     ds = data.atom_lines('Ne', force_download=True)
-    assert ds['wavelength_uncertainty'].dtype == float
+    assert ds['wavelength_err'].dtype == float
+
+    ds = data.atom_lines('Ne', unit='nm(air)')
+    assert ds['wavelength_err'].attrs['unit'] == 'nm(air)'

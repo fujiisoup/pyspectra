@@ -144,7 +144,7 @@ def get_lines(atom, nele):
     data = data.rename(renames).drop(drops)
 
     # rename if existing
-    renames = {'unc_obs_wl': 'wavelength_uncertainty'}
+    renames = {'unc_obs_wl': 'wavelength_err'}
     drops = ['unc_obs_wl_uncertain']
     for key, item in renames.items():
         if key in data:
@@ -161,11 +161,12 @@ def get_lines(atom, nele):
     data['S_uncertain'].attrs['unit'] = 'a.u.'
 
     # make sure wavelength_uncertainty is in float
-    if 'wavelength_uncertainty' in data:
-        data['wavelength_uncertainty'] = xr.where(
-            data['wavelength_uncertainty'] == '', 
+    if 'wavelength_err' in data:
+        data['wavelength_err'] = xr.where(
+            data['wavelength_err'] == '', 
             np.nan, 
-            data['wavelength_uncertainty']).astype(float)
+            data['wavelength_err']).astype(float)
+        data['wavelength_err'].attrs['unit'] = 'nm(vacuum)'
     return data.swap_dims({'itrans': 'wavelength'})
 
 
@@ -257,6 +258,14 @@ def _parse_levels(lines):
 
     if 'j' in ds.coords:
         ds = ds.rename({'j': 'J'})
+
+    renames = {
+        'Level(eV)_digits': 'energy_digits',
+        'Level(eV)_is_predicted': 'energy_is_predicted',
+        'Level(eV)_is_theoretical': 'energy_is_theoretical',
+        'Uncertainty (eV)': 'energy_err'
+    }
+    renames = {key: item for key, item in renames.items() if key in ds}
     return ds.dropna('energy')
 
 

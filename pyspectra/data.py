@@ -37,15 +37,24 @@ def atom_lines(
     if unit not in keys:
         raise NotImplementedError('unit {} is not supported. Supported units are {}.'.format(unit, keys))
 
-    if unit == 'nm(air)':
-        ds['wavelength'] = refractive_index.vacuum_to_air(ds['wavelength'])
-        ds['wavelength'].attrs['unit'] = 'nm(air)'
-    elif unit == 'eV':
-        ds['wavelength'] = units.nm_to_eV(ds['wavelength'])
-        ds['wavelength'].attrs['unit'] = 'eV'
-    elif unit == 'cm':
-        ds['wavelength'] = units.nm_to_cm(ds['wavelength'])
-        ds['wavelength'].attrs['unit'] = 'cm^{-1}'
+    for key in ['wavelength', 'wavelength_ritz']:
+        key_err = key + '_err'
+        if key_err in ds:
+            error_ratio = (ds[key_err] / ds[key]).values
+
+        if unit == 'nm(air)':
+            ds[key] = refractive_index.vacuum_to_air(ds[key])
+            ds[key].attrs['unit'] = 'nm(air)'
+        elif unit == 'eV':
+            ds[key] = units.nm_to_eV(ds[key])
+            ds[key].attrs['unit'] = 'eV'
+        elif unit == 'cm':
+            ds[key] = units.nm_to_cm(ds['wavelength'])
+            ds[key].attrs['unit'] = 'cm^{-1}'
+        
+        if key_err in ds:
+            ds[key_err] = ds[key] * error_ratio
+            ds[key_err].attrs['unit'] = ds[key].attrs['unit']
     return ds
 
 
