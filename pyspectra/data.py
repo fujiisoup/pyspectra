@@ -15,11 +15,29 @@ def assure_directory(dirname):
         os.mkdir(dirname)
 
 
-def atom(
+def atom_levels(
+        element, nele=None, force_download=False, source='nist',
+        cache_dir=_default_cache_dir
+    ):
+    return _atom(
+        'levels', element, nele, force_download, source,
+        cache_dir)
+
+def atom_lines(
+        element, nele=None, force_download=False, source='nist',
+        cache_dir=_default_cache_dir
+    ):
+    return _atom(
+        'lines', element, nele, force_download, source,
+        cache_dir)
+
+def _atom(
+        kind,
         element, nele=None, force_download=False, source='nist',
         cache_dir=_default_cache_dir
     ):
     import xarray as xr
+    from ._data_atom_nist import get_levels, get_lines
 
     if nele is None:  # neutral is assumed
         nele = ATOMIC_SYMBOLS.index(element)
@@ -30,11 +48,17 @@ def atom(
     cache_dir = os.sep.join((
         _default_cache_dir, "atom", source))
     assure_directory(cache_dir)
-
-    filename = os.sep.join((cache_dir, element + '_' + str(nele) + '.nc'))
-    if not os.path.exists(filename) or force_download:
-        ds = download_atom_nist(element, nele)
-        ds.to_netcdf(filename)
+    
+    if kind == 'levels':
+        filename = os.sep.join((cache_dir, element + str(nele) + '.nc'))
+        if not os.path.exists(filename) or force_download:
+            ds = get_levels(element, nele)
+            ds.to_netcdf(filename)
+    elif kind == 'lines':
+        filename = os.sep.join((cache_dir, element + str(nele) + '_lines.nc'))
+        if not os.path.exists(filename) or force_download:
+            ds = get_levels(element, nele)
+            ds.to_netcdf(filename)
     return xr.load_dataset(filename)
 
 
@@ -126,16 +150,3 @@ def download_diatomic_molecule_nist(molecule):
     ds = download(molecule)
     return ds
 
-
-def download_atom_nist(element, nele):
-    """
-    Download level and line data from nist Atomic Spectra Database
-
-    element: atomic element
-    nele: number of electrons 
-    """
-    from ._data_atom_nist import get_levels, get_lines, fuse
-
-    levels = get_levels(element, nele)
-    lines = fuse(levels, get_lines(element, nele))
-    return lines

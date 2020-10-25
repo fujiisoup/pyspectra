@@ -8,8 +8,14 @@ def test_diatomic_molecule():
     assert ds == ds2
 
 
-def test_atom():
-    ds = data.atom('Li', force_download=True)
-    ds2 = data.atom('Li', force_download=False)
+def test_atom_levels():
+    ds = data.atom_levels('Li', force_download=True)
+    ds2 = data.atom_levels('Li', force_download=False)
+    
+    assert ds == ds2
+
+def test_atom_lines():
+    ds = data.atom_lines('Li', force_download=True)
+    ds2 = data.atom_lines('Li', force_download=False)
     
     assert ds == ds2
