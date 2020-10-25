@@ -1,27 +1,81 @@
 import os
 import numpy as np
+from .atoms import ATOMIC_SYMBOLS
 
-THIS_DIR = os.path.dirname(__file__) + '/'
-DIATOMIC_DIR = THIS_DIR + 'downloaded/diatomic_molecules/'
+
+_default_cache_dir = os.sep.join(
+    (os.path.expanduser("~"), ".pyspectra_data")
+)
 
 
 def assure_directory(dirname):
     if not os.path.exists(dirname):
+        parent_dir = dirname[:dirname.rfind(os.sep)]
+        assure_directory(parent_dir)
         os.mkdir(dirname)
 
 
-assure_directory(THIS_DIR)
-assure_directory(THIS_DIR + 'downloaded/')
-assure_directory(DIATOMIC_DIR)
-assure_directory(DIATOMIC_DIR + 'nist/')
+def atom_levels(
+        element, nele=None, force_download=False, source='nist',
+        cache_dir=_default_cache_dir
+    ):
+    return _atom(
+        'levels', element, nele, force_download, source,
+        cache_dir)
 
+def atom_lines(
+        element, nele=None, force_download=False, source='nist',
+        cache_dir=_default_cache_dir
+    ):
+    return _atom(
+        'lines', element, nele, force_download, source,
+        cache_dir)
 
-def diatomic_molecules(molecule, force_download=False, source='nist'):
+def _atom(
+        kind,
+        element, nele=None, force_download=False, source='nist',
+        cache_dir=_default_cache_dir
+    ):
     import xarray as xr
+    from ._data_atom_nist import get_levels, get_lines
 
-    filename = DIATOMIC_DIR + source + '/' + molecule + '.nc'
+    if nele is None:  # neutral is assumed
+        nele = ATOMIC_SYMBOLS.index(element)
+
     if source not in ['nist']:
         raise NotImplementedError('Only NIST is available yet.')
+
+    cache_dir = os.sep.join((
+        _default_cache_dir, "atom", source))
+    assure_directory(cache_dir)
+    
+    if kind == 'levels':
+        filename = os.sep.join((cache_dir, element + str(nele) + '.nc'))
+        if not os.path.exists(filename) or force_download:
+            ds = get_levels(element, nele)
+            ds.to_netcdf(filename)
+    elif kind == 'lines':
+        filename = os.sep.join((cache_dir, element + str(nele) + '_lines.nc'))
+        if not os.path.exists(filename) or force_download:
+            ds = get_levels(element, nele)
+            ds.to_netcdf(filename)
+    return xr.load_dataset(filename)
+
+
+def diatomic_molecules(
+        molecule, force_download=False, source='nist',
+        cache_dir=_default_cache_dir
+    ):
+    import xarray as xr
+
+    if source not in ['nist']:
+        raise NotImplementedError('Only NIST is available yet.')
+
+    cache_dir = os.sep.join((
+        _default_cache_dir, "diatomic_molecules", source))
+    assure_directory(cache_dir)
+
+    filename = os.sep.join((cache_dir, molecule + '.nc'))
     if not os.path.exists(filename) or force_download:
         ds = download_diatomic_molecule_nist(molecule)
         ds.to_netcdf(filename)
