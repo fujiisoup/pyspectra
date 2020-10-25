@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from .atoms import ATOMIC_SYMBOLS
+from . import units, refractive_index
 
 
 _default_cache_dir = os.sep.join(
@@ -24,12 +25,38 @@ def atom_levels(
         cache_dir)
 
 def atom_lines(
-        element, nele=None, force_download=False, source='nist',
+        element, nele=None, unit='nm(vacuum)',
+        force_download=False, source='nist',
         cache_dir=_default_cache_dir
     ):
-    return _atom(
+    ds = _atom(
         'lines', element, nele, force_download, source,
         cache_dir)
+    
+    keys = ['nm(air)', 'nm(vacuum)', 'eV', 'cm']
+    if unit not in keys:
+        raise NotImplementedError('unit {} is not supported. Supported units are {}.'.format(unit, keys))
+
+    for key in ['wavelength', 'wavelength_ritz']:
+        key_err = key + '_err'
+        if key_err in ds:
+            error_ratio = (ds[key_err] / ds[key]).values
+
+        if unit == 'nm(air)':
+            ds[key] = refractive_index.vacuum_to_air(ds[key])
+            ds[key].attrs['unit'] = 'nm(air)'
+        elif unit == 'eV':
+            ds[key] = units.nm_to_eV(ds[key])
+            ds[key].attrs['unit'] = 'eV'
+        elif unit == 'cm':
+            ds[key] = units.nm_to_cm(ds['wavelength'])
+            ds[key].attrs['unit'] = 'cm^{-1}'
+        
+        if key_err in ds:
+            ds[key_err] = ds[key] * error_ratio
+            ds[key_err].attrs['unit'] = ds[key].attrs['unit']
+    return ds
+
 
 def _atom(
         kind,
