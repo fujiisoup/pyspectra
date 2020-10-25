@@ -6,3 +6,5 @@ dependencies:
   - scipy
   - xarray
   - scikit-learn
+  - bs4
+  - html5lib
