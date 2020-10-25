@@ -34,3 +34,7 @@ def test_atom_lines():
     
     ds = data.atom_lines('Li', unit='cm')
     assert ds['wavelength'].attrs['unit'] == 'cm^{-1}'
+
+def test_atom_lines_uncertainty():
+    ds = data.atom_lines('Ne', force_download=True)
+    assert ds['wavelength_uncertainty'].dtype == float

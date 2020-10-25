@@ -128,19 +128,44 @@ def get_lines(atom, nele):
     renames = {}
     renames['obs_wl_vac(nm)'] = 'wavelength'
     renames['obs_wl_vac(nm)_uncertain'] = 'wavelength_uncertain'
+    renames['unc_ritz_wl'] = 'wavelength_ritz_uncertainty'
     renames['ritz_wl_vac(nm)'] = 'wavelength_ritz'
     renames['ritz_wl_vac(nm)_uncertain'] = 'wavelength_ritz_uncertain'
     renames['Aki(s^-1)'] = 'Aki'
     renames['Aki(s^-1)_uncertain'] = 'Aki_uncertain'
     renames['S(a.u.)'] = 'S'
     renames['S(a.u.)_uncertain'] = 'S_uncertain'
-    data = data.rename(renames)
+
+    renames['intens'] = 'intensity'
+    renames['intens_uncertain'] = 'intensity_uncertain'
+
+    drops = ['unc_ritz_wl_uncertain', '_uncertain']
+
+    data = data.rename(renames).drop(drops)
+
+    # rename if existing
+    renames = {'unc_obs_wl': 'wavelength_uncertainty'}
+    drops = ['unc_obs_wl_uncertain']
+    for key, item in renames.items():
+        if key in data:
+            data = data.rename({key: item})
+    for key in drops:
+        if key in data:
+            data = data.drop(key)
+
     data['wavelength'].attrs['unit'] = 'nm(vacuum)'
     data['wavelength_ritz'].attrs['unit'] = 'nm(vacuum)'
     data['Aki'].attrs['unit'] = 's^-1'
     data['Aki_uncertain'].attrs['unit'] = 's^-1'
     data['S'].attrs['unit'] = 'a.u.'
     data['S_uncertain'].attrs['unit'] = 'a.u.'
+
+    # make sure wavelength_uncertainty is in float
+    if 'wavelength_uncertainty' in data:
+        data['wavelength_uncertainty'] = xr.where(
+            data['wavelength_uncertainty'] == '', 
+            np.nan, 
+            data['wavelength_uncertainty']).astype(float)
     return data.swap_dims({'itrans': 'wavelength'})
 
 
