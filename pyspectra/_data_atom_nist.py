@@ -128,7 +128,7 @@ def get_lines(atom, nele):
     renames = {}
     renames['obs_wl_vac(nm)'] = 'wavelength'
     renames['obs_wl_vac(nm)_uncertain'] = 'wavelength_uncertain'
-    renames['unc_ritz_wl'] = 'wavelength_ritz_uncertainty'
+    renames['unc_ritz_wl'] = 'wavelength_ritz_err'
     renames['ritz_wl_vac(nm)'] = 'wavelength_ritz'
     renames['ritz_wl_vac(nm)_uncertain'] = 'wavelength_ritz_uncertain'
     renames['Aki(s^-1)'] = 'Aki'

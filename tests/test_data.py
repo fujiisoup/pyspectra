@@ -41,3 +41,4 @@ def test_atom_lines_uncertainty():
 
     ds = data.atom_lines('Ne', unit='nm(air)')
     assert ds['wavelength_err'].attrs['unit'] == 'nm(air)'
+    assert ds['wavelength_ritz_err'].attrs['unit'] == 'nm(air)'
