@@ -57,7 +57,7 @@ def _atom(
     elif kind == 'lines':
         filename = os.sep.join((cache_dir, element + str(nele) + '_lines.nc'))
         if not os.path.exists(filename) or force_download:
-            ds = get_levels(element, nele)
+            ds = get_lines(element, nele)
             ds.to_netcdf(filename)
     return xr.load_dataset(filename)
 
