@@ -16,15 +16,38 @@ THIS_DIR = os.path.dirname(__file__)
     (1000, 10.0, 30.0, 30.0),
 ])
 @pytest.mark.parametrize('seed', [0, 1])
-def test_gaussian(n, sn, x0, width, seed):
+@pytest.mark.parametrize('profile', ['gauss', 'lorentz'])
+def test_simple_fit(n, sn, x0, width, seed, profile):
     rng = np.random.RandomState(seed)
     x = np.linspace(-100, 100, n)
     A = sn * width * np.sqrt(2 * np.pi)
-    y = profiles.Gauss(x, A, x0, width, 0) + rng.randn(n)
+    if profile == 'gauss':
+        y = profiles.Gauss(x, A, x0, width, 0) + rng.randn(n)
+    elif profile == 'lorentz':
+        y = profiles.Lorentz(x, A, x0, width, 0) + rng.randn(n)
 
-    popt, perr = fit.singlepeak_fit(x, y)
-    
+    popt, perr = fit.singlepeak_fit(x, y, profile=profile)
+    print(popt[2], width)
     expected = np.array((A, x0, width, 0))
+    assert ((popt - 5 * perr < expected) * (expected < popt + 5 * perr)).all()
+
+
+@pytest.mark.parametrize(('n', 'sn', 'x0', 'sigma', 'gamma'),
+[
+    (100, 100.0, 0.0, 10.0, 4.0),
+    (100, 30.0, 0.0, 10.0, 30.0),
+    (1000, 10.0, 30.0, 30.0, 0.2),
+])
+@pytest.mark.parametrize('seed', [0, 1])
+def test_voigt(n, sn, x0, sigma, gamma, seed):
+    rng = np.random.RandomState(seed)
+    x = np.linspace(-100, 100, n)
+    A = sn * sigma * np.sqrt(2 * np.pi)
+    y = profiles.Voigt(x, A, x0, sigma, gamma, 0) + rng.randn(n)
+
+    popt, perr = fit.singlepeak_fit(x, y, profile='voigt')
+    
+    expected = np.array((A, x0, sigma, gamma, 0))
     assert ((popt - 5 * perr < expected) * (expected < popt + 5 * perr)).all()
 
 

@@ -46,6 +46,24 @@ def Lorentz(x, A, x0, gamma, offset):
     return cauchy((x - x0) / gamma) / gamma * A + offset
 
 
+def _gamma_to_FWHM(gamma):
+    """
+    convert standard deviation to full-width-half-maximum
+    """
+    return 2.0 * gamma
+
+
+def _FWHM_to_gamma(fwhm):
+    """
+    Convert full-width-half-maximum to standard deviation
+    """
+    return fwhm / 2.0
+
+
+Lorentz.gamma_to_FWHM = _gamma_to_FWHM
+Lorentz.FWHM_to_gamma = _FWHM_to_gamma
+
+
 def voigt(x, sigma, gamma):
     return np.real(wofz((x + 1j*gamma)/sigma/np.sqrt(2))) / sigma / np.sqrt(2*np.pi)
 
@@ -55,6 +73,18 @@ def Voigt(x, A, x0, sigma, gamma, offset):
     Voigt function, which is a convolution of Lorentzian and Gaussian
     """
     return voigt((x - x0), sigma, gamma) * A + offset
+
+
+def _sigma_gamma_to_FWHM(sigma, gamma):
+    """
+    Estimate FWHM for Voigt
+    """
+    fG = _sigma_to_FWHM(sigma)  # Gauss width
+    fL = _sigma_to_FWHM(sigma)  # Lorentz width
+    return 0.5346 * fL + np.sqrt(0.2166 * fL**2 + fG**2)
+
+
+Voigt.sigma_gamma_to_FWHM = _sigma_gamma_to_FWHM
 
 
 def voigt_fast(x, A, x0, sigma, gamma, offset):

@@ -11,8 +11,44 @@ except ImportError:
 from .profiles import Gauss, Lorentz, Voigt
 
 
-def _initial_guess(x, y, p0):
-    pass
+def _initial_guess(x, y, profile, method='nearest'):
+    """
+    initial guess based on the median
+
+    method: 'nearest' | 'cumulative'
+
+    methods
+    -------
+    nearest
+        Estimate width based on the nearest points satisfying fwhm
+    """
+    # automatic estimate
+    max_idx = np.argmax(y)
+    offset = np.min(y)
+    # centroid
+    x0 = x[max_idx]
+    ymax = y[max_idx]
+    
+    if method == 'nearest':
+        # estimate width
+        idx = np.argsort(np.abs(x - x0))
+        x_diff = np.abs(x - x0)[idx]
+        y_diff = y[idx]
+        width = x_diff[y_diff - offset - ymax / 2 < 0][0] 
+        # make it 
+        width = np.maximum(width, x_diff[2])
+        if profile in ['gauss', 'gaussian']:
+            width = width / np.sqrt(2 * np.log(2))
+            p0 = (ymax * width, x0, width, offset)
+        elif profile in ['lorentz', 'lorentzian']:
+            p0 = (ymax * width, x0, width, offset)
+        elif profile == 'voigt':
+            # half-width at 10% of maximum
+            width = width / np.sqrt(2 * np.log(2))
+            width_01 = x_diff[y_diff - offset - ymax / 10 < 0][0] 
+            gamma = np.maximum(width_01 - 2 * width, width * 0.1)
+            p0 = (ymax * width, x0, width, gamma / 1.5, offset)
+    return p0
 
 
 def singlepeak_fit(x, y, p0=None, profile='gauss'):
@@ -20,25 +56,14 @@ def singlepeak_fit(x, y, p0=None, profile='gauss'):
     Fit single peak to a spectrum
     """
     if p0 is None:
-        # automatic estimate
-        max_idx = np.argmax(y)
-        offset = np.min(y)
-        # centroid
-        x0 = x[max_idx]
-        ymax = y[max_idx]
-        # estimate width
-        idx = np.argsort(np.abs(x - x0))
-        x_diff = (x - x0)[idx]
-        y_diff = y[idx]
-        i_half = np.argmin(np.abs(y_diff - offset - ymax / 2))
-        width = x_diff[i_half]
-        width = np.maximum(width, x[max_idx + 3] - x[max_idx])
-        p0 = (ymax * width, x0, width, offset)
+        p0 = _initial_guess(x, y, profile, method='nearest')
     
     if profile.lower() in ['gauss', 'gaussian']:
         popt, pcov = optimize.curve_fit(Gauss, x, y, p0)
     elif profile.lower() in ['lorentz', 'lorentzian']:
         popt, pcov = optimize.curve_fit(Lorentz, x, y, p0)
+    elif profile.lower() in ['voigt']:
+        popt, pcov = optimize.curve_fit(Voigt, x, y, p0)
     else:
         raise NotImplementedError('fitting with {} is not implemented.'.format(profile))
     return popt, np.sqrt(np.diagonal(pcov))
