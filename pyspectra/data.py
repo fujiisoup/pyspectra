@@ -118,6 +118,17 @@ def download_diatomic_molecule_nist(molecule):
     import pandas as pd
     import urllib.request
 
+    # support some notation fluctuation
+    notations = {
+        'HO': 'Hydroxyl-radical',
+        'DO': 'Hydroxyl-d',
+        'TO': 'Hydroxyl-t',
+        'OH': 'Hydroxyl-radical',
+        'OD': 'Hydroxyl-d',
+        'OT': 'Hydroxyl-t',
+    }
+    molecule = notations.get(molecule, molecule)
+
     def robust_float(s):
         if isinstance(s, (float, int)):
             return float(s)

@@ -1,12 +1,14 @@
+import pytest
 from pyspectra import data
 
 
-def test_diatomic_molecule():
-    ds = data.diatomic_molecules('I2', force_download=True)
-    ds2 = data.diatomic_molecules('I2')
-
+@pytest.mark.parametrize('molecule', [
+    'I2', 'HO', 'H2', 'OH', 'OD',
+])
+def test_diatomic_molecule(molecule):
+    ds = data.diatomic_molecules(molecule, force_download=True)
+    ds2 = data.diatomic_molecules(molecule)
     assert ds == ds2
-
 
 def test_atom_levels():
     ds = data.atom_levels('Li', force_download=True)
