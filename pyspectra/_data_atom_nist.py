@@ -103,7 +103,9 @@ def get_levels(atom, nele):
         if ' ' in c:
             renames[c] = c.replace(' ', '')
     
-    return data.rename(renames)
+    data = data.rename(renames)
+    data.attrs['url'] = url
+    return data
 
 
 def get_lines(atom, nele):
@@ -169,7 +171,9 @@ def get_lines(atom, nele):
             np.nan, 
             data['wavelength_err']).astype(float)
         data['wavelength_err'].attrs['unit'] = 'nm(vacuum)'
-    return data.swap_dims({'itrans': 'wavelength'})
+    data = data.swap_dims({'itrans': 'wavelength'})
+    data.attrs['url'] = url
+    return data
 
 
 def parity_term(term):
