@@ -92,6 +92,7 @@ def get_levels(atom, nele):
     Scrape NIST web page.
     """
     url = get_level_url(atom, nele)
+    print('downloading from {}'.format(url))
     contents = urllib.request.urlopen(url).read().decode('utf-8')
     lines = contents.split('\n')
     data = _parse_levels(lines)
@@ -110,6 +111,7 @@ def get_lines(atom, nele):
     Scrape NIST web page.
     """
     url = get_line_url(atom, nele)
+    print('downloading from {}'.format(url))
     contents = urllib.request.urlopen(url).read().decode('utf-8')
     lines = contents.split('\n')
     data = _parse_lines(lines)

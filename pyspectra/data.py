@@ -183,6 +183,7 @@ def download_diatomic_molecule_nist(molecule):
         tables = pd.read_html(url, flavor='bs4', match='Diatomic constants ')
         ds = to_xarray(tables[0])
         ds.attrs['name'] = name
+        ds.attrs['url'] = url
         return ds
 
     ds = download(molecule)
