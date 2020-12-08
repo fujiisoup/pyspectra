@@ -21,23 +21,23 @@ def level(molecule, state, v, J):
         ))
     constants = constants.sel(state=state).fillna(0)
     Evib = (
-        constants['we'] * (v + 0.5) 
-        - constants['wexe'] * (v + 0.5)**2 
-        + constants['weye'] * (v + 0.5)**3
+        constants['we'].item() * (v + 0.5) 
+        - constants['wexe'].item() * (v + 0.5)**2 
+        + constants['weye'].item() * (v + 0.5)**3
     )
     Erot = (
         (
-            constants['Be'] 
-            - constants['alpha_e'] * (v + 0.5)
-            + constants['gamma_e'] * (v + 0.5)**2
+            constants['Be'].item() 
+            - constants['alpha_e'].item() * (v + 0.5)
+            + constants['gamma_e'].item() * (v + 0.5)**2
         ) * J * (J + 1)
         -
         (
-            constants['De']
-            - constants['beta_e'] * (v + 0.5)
+            constants['De'].item()
+            + constants['beta_e'].item() * (v + 0.5)
         ) * J**2 * (J + 1)**2
     )
-    return units.cm_to_eV(constants['Te'] + Evib + Erot)
+    return units.cm_to_eV(constants['Te'].item() + Evib + Erot)
 
 
 def level_OH_X2(v, J, parity, spin):
