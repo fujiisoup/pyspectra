@@ -62,6 +62,7 @@ def test_nnls_reg(type, alpha):
         regularization_parameter=alpha,
         )
     
+    """
     import matplotlib.pyplot as plt
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 2, 1)
@@ -72,3 +73,4 @@ def test_nnls_reg(type, alpha):
     plt.plot(actual)
     plt.plot(x)
     plt.show()
+    """
