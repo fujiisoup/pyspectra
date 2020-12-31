@@ -5,7 +5,7 @@ from scipy import optimize
 def nnls(
     y, template, 
     maxiter=None,
-    weight=None, 
+    sigma=None, 
     regularization_type='none', 
     regularization_parameter=0.0
 ):
@@ -20,7 +20,8 @@ def nnls(
     ----------
     y: 1d array (shape n)
     template: 1d array (shape m)
-    weight: None or 1d-array of positive value
+    sigma: None or 1d-array of positive value.
+        Gives the inverse weight for each observation.
     regularization_type: string indicating the regularization used.
         One of {'none', 'ridge', 'lasso'}
 
@@ -29,10 +30,10 @@ def nnls(
     x: 1d array (shape n - m + 1)
     """
     X = _template_to_matrix(template, len(y))
-    if weight is not None:
-        assert weight.shape == y.shape
-        X = X / weight[:, np.newaxis]
-        y = y / weight
+    if sigma is not None:
+        assert sigma.shape == y.shape
+        X = X * sigma[:, np.newaxis]
+        y = y * sigma
 
     if regularization_type == 'none':
         return optimize.nnls(X, y)[0]

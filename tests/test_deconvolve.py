@@ -31,8 +31,8 @@ def test_nnls():
     actual = deconvolve.nnls(y, template)
     
     # test weight
-    weight = 1.0 / y_true
-    actual = deconvolve.nnls(y, template, weight=weight)
+    sigma = np.sqrt(y_true)
+    actual = deconvolve.nnls(y, template, sigma=sigma)
     
     """
     import matplotlib.pyplot as plt
