@@ -19,7 +19,7 @@ def test_convolve(n, m):
 
 def test_nnls():
     template = np.array([1] + [0] * 10 + [0.5])
-    x = profiles.Gauss(
+    x = profiles.Lorentz(
         np.linspace(-1, 1, 101), 
         1.0, 0.0, 0.1, 0.0)
     y_true = np.convolve(x, template, mode='full')
@@ -27,8 +27,12 @@ def test_nnls():
     assert np.allclose(actual, x, atol=1e-3)
 
     rng = np.random.RandomState(0)
-    y = y_true + 0.1 * rng.randn(*y_true.shape)
+    y = y_true + 0.05 * rng.randn(*y_true.shape)
     actual = deconvolve.nnls(y, template)
+    
+    # test weight
+    weight = 1.0 / y_true
+    actual = deconvolve.nnls(y, template, weight=weight)
     
     """
     import matplotlib.pyplot as plt
