@@ -80,7 +80,7 @@ def _sigma_gamma_to_FWHM(sigma, gamma):
     Estimate FWHM for Voigt
     """
     fG = _sigma_to_FWHM(sigma)  # Gauss width
-    fL = _sigma_to_FWHM(sigma)  # Lorentz width
+    fL = _sigma_to_FWHM(gamma)  # Lorentz width
     return 0.5346 * fL + np.sqrt(0.2166 * fL**2 + fG**2)
 
 
