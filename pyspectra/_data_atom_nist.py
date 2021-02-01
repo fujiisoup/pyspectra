@@ -145,6 +145,8 @@ def get_lines(atom, nele):
 
     drops = ['unc_ritz_wl_uncertain', '_uncertain']
 
+    renames = {key: item for key, item in renames.items() if key in data}
+    drops = [key for key in drops if key in data]
     data = data.rename(renames).drop(drops)
 
     # rename if existing
