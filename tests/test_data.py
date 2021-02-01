@@ -44,3 +44,12 @@ def test_atom_lines_uncertainty():
     ds = data.atom_lines('Ne', unit='nm(air)')
     assert ds['wavelength_err'].attrs['unit'] == 'nm(air)'
     assert ds['wavelength_ritz_err'].attrs['unit'] == 'nm(air)'
+
+
+@pytest.mark.parametrize(['atom', 'nele'],
+[
+    ('N', None)
+],
+)
+def test_atom_lines_noerror(atom, nele):
+    ds = data.atom_lines(atom, nele=nele, force_download=True)
