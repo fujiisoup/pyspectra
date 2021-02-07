@@ -4,7 +4,7 @@ from scipy import stats
 
 
 def normal(x):
-    return 1 / np.sqrt(2.0 * np.pi) * np.exp(- 0.5 * x**2)
+    return 1 / np.sqrt(2.0 * np.pi) * np.exp(-0.5 * x ** 2)
 
 
 gauss = normal
@@ -37,7 +37,7 @@ Gauss.FWHM_to_sigma = _FWHM_to_sigma
 
 
 def cauchy(x):
-    return 1 / (np.pi * (1 + x**2))
+    return 1 / (np.pi * (1 + x ** 2))
 
 
 def Lorentz(x, A, x0, gamma, offset):
@@ -66,7 +66,11 @@ Lorentz.FWHM_to_gamma = _FWHM_to_gamma
 
 
 def voigt(x, sigma, gamma):
-    return np.real(wofz((x + 1j*gamma)/sigma/np.sqrt(2))) / sigma / np.sqrt(2*np.pi)
+    return (
+        np.real(wofz((x + 1j * gamma) / sigma / np.sqrt(2)))
+        / sigma
+        / np.sqrt(2 * np.pi)
+    )
 
 
 def Voigt(x, A, x0, sigma, gamma, offset):
@@ -82,7 +86,7 @@ def _sigma_gamma_to_FWHM(sigma, gamma):
     """
     fG = _sigma_to_FWHM(sigma)  # Gauss width
     fL = _sigma_to_FWHM(gamma)  # Lorentz width
-    return 0.5346 * fL + np.sqrt(0.2166 * fL**2 + fG**2)
+    return 0.5346 * fL + np.sqrt(0.2166 * fL ** 2 + fG ** 2)
 
 
 Voigt.sigma_gamma_to_FWHM = _sigma_gamma_to_FWHM
@@ -97,8 +101,7 @@ def voigt_fast(x, A, x0, sigma, gamma, offset):
 
 
 def generalized_voigt1(
-    x, gamma, df, 
-    num_points=32, method='log_trapz', w_min=0.03, w_max=30.0,
+    x, gamma, df, num_points=32, method="log_trapz", w_min=0.03, w_max=30.0,
 ):
     """
     Generalized voigt profile, where we convolute gaussian and student-t distribution with degree of 
@@ -109,23 +112,26 @@ def generalized_voigt1(
     method: method for integration
     """
     x, gamma, df = np.broadcast_arrays(x, gamma, df)
-    gamma2 = gamma**2
+    gamma2 = gamma ** 2
     dfhalf = df / 2
     # when w * gamma << 1
     pdf_lo = normal(x) * gammaincc(dfhalf, dfhalf * gamma2 / w_min)
     # when w * gamma >> 1
     pdf_hi = stats.t.pdf(x, loc=0, scale=gamma, df=df) * (
-        1 - gammaincc(dfhalf + 0.5, (dfhalf * gamma2 + x**2 / 2) / w_max))
+        1 - gammaincc(dfhalf + 0.5, (dfhalf * gamma2 + x ** 2 / 2) / w_max)
+    )
     # when w * gamma ~ 1
-    if method == 'log_trapz':
+    if method == "log_trapz":
         # w indicates w * gamma**2
         w = np.logspace(np.log10(w_min), np.log10(w_max), base=10, num=num_points)
-        w = np.expand_dims(w, (-1, ) * x.ndim)
+        w = np.expand_dims(w, (-1,) * x.ndim)
         sqrt_w = np.sqrt(w + 1)
         pdf = np.trapz(
-            normal(x / sqrt_w) / sqrt_w * stats.invgamma.pdf(
-                w, a=dfhalf, loc=0, scale=dfhalf * gamma2),
-            x=w, axis=0
+            normal(x / sqrt_w)
+            / sqrt_w
+            * stats.invgamma.pdf(w, a=dfhalf, loc=0, scale=dfhalf * gamma2),
+            x=w,
+            axis=0,
         )
     else:
         raise NotImplementedError

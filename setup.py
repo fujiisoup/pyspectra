@@ -16,29 +16,32 @@ else:
 
 # module
 
-setup(name='pyspectra',
-      version=verstr,
-      author="Keisuke Fujii",
-      author_email="fujii@me.kyoto-u.ac.jp",
-      description=("Python small library for spectroscopy"),
-      license="BSD 3-clause",
-      keywords="spectroscopy, atomic data, machine learning",
-      url="http://github.com/fujiisoup/xrfac",
-      include_package_data=True,
-      ext_modules=[],
-      packages=["pyspectra", ],
-      package_dir={'pyspectra': 'pyspectra'},
-      py_modules=['pyspectra.__init__'],
-      test_suite='tests',
-      install_requires="""
+setup(
+    name="pyspectra",
+    version=verstr,
+    author="Keisuke Fujii",
+    author_email="fujii@me.kyoto-u.ac.jp",
+    description=("Python small library for spectroscopy"),
+    license="BSD 3-clause",
+    keywords="spectroscopy, atomic data, machine learning",
+    url="http://github.com/fujiisoup/xrfac",
+    include_package_data=True,
+    ext_modules=[],
+    packages=["pyspectra",],
+    package_dir={"pyspectra": "pyspectra"},
+    py_modules=["pyspectra.__init__"],
+    test_suite="tests",
+    install_requires="""
         numpy>=1.11
         scipy>=1.00
         """,
-      classifiers=['License :: OSI Approved :: BSD License',
-                   'Natural Language :: English',
-                   'Operating System :: MacOS :: MacOS X',
-                   'Operating System :: Microsoft :: Windows',
-                   'Operating System :: POSIX :: Linux',
-                   'Programming Language :: Python :: 3.6',
-                   'Topic :: Scientific/Engineering :: Physics']
-      )
+    classifiers=[
+        "License :: OSI Approved :: BSD License",
+        "Natural Language :: English",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3.6",
+        "Topic :: Scientific/Engineering :: Physics",
+    ],
+)

@@ -3,7 +3,7 @@ import pytest
 from pyspectra import units
 
 
-@pytest.mark.parametrize('seed', [0, 1, 2])
+@pytest.mark.parametrize("seed", [0, 1, 2])
 def test(seed):
     rng = np.random.RandomState(seed)
 
