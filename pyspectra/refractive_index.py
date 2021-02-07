@@ -4,7 +4,7 @@ def air(nm):
     [Calculation script (Python) - can be used for calculating refractive index of air at a given humidity, temperatire, pressure, and CO2 concentration]
     """
     x = nm * 1e-3
-    return 1 + 0.05792105 / (238.0185 - x**-2) + 0.00167917 / (57.362 - x**-2)
+    return 1 + 0.05792105 / (238.0185 - x ** -2) + 0.00167917 / (57.362 - x ** -2)
 
 
 def vacuum_to_air(nm_in_vacuum):

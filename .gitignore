@@ -11,3 +11,6 @@ dist
 
 # data dir
 pyspectra/downloaded/*
+
+# notebooks
+notebooks
