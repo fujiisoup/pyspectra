@@ -1,5 +1,6 @@
 import numpy as np
-from scipy.special import wofz
+from scipy.special import wofz, gamma, gammaincc
+from scipy import stats
 
 
 def normal(x):
@@ -93,3 +94,40 @@ def voigt_fast(x, A, x0, sigma, gamma, offset):
     two lorentzian and gaussian
     """
     raise NotImplementedError
+
+
+def generalized_voigt1(
+    x, gamma, df, 
+    num_points=32, method='log_trapz', w_min=0.03, w_max=30.0,
+):
+    """
+    Generalized voigt profile, where we convolute gaussian and student-t distribution with degree of 
+    freedom df.
+
+    gamma, df: scale parameter and degree of freedom for the t-distribution
+    num_points: number of points to carry out the integration
+    method: method for integration
+    """
+    x, gamma, df = np.broadcast_arrays(x, gamma, df)
+    gamma2 = gamma**2
+    dfhalf = df / 2
+    # when w * gamma << 1
+    pdf_lo = normal(x) * gammaincc(dfhalf, dfhalf * gamma2 / w_min)
+    # when w * gamma >> 1
+    pdf_hi = stats.t.pdf(x, loc=0, scale=gamma, df=df) * (
+        1 - gammaincc(dfhalf + 0.5, (dfhalf * gamma2 + x**2 / 2) / w_max))
+    # when w * gamma ~ 1
+    if method == 'log_trapz':
+        # w indicates w * gamma**2
+        w = np.logspace(np.log10(w_min), np.log10(w_max), base=10, num=num_points)
+        w = np.expand_dims(w, (-1, ) * x.ndim)
+        sqrt_w = np.sqrt(w + 1)
+        pdf = np.trapz(
+            normal(x / sqrt_w) / sqrt_w * stats.invgamma.pdf(
+                w, a=dfhalf, loc=0, scale=dfhalf * gamma2),
+            x=w, axis=0
+        )
+    else:
+        raise NotImplementedError
+
+    return pdf + pdf_lo + pdf_hi
