@@ -100,6 +100,23 @@ def voigt_fast(x, A, x0, sigma, gamma, offset):
     raise NotImplementedError
 
 
+def GeneralizedVoigt1(x, A, x0, sigma, gamma, df, offset):
+    """
+    Generalized voigt function with scale.
+    This is defined as a convolution of a Gaussian distribution and t-distribution
+
+    A: area
+    x0: location parameter
+    sigma: scale parameter for gaussian
+    gamma: scale parameter for t-distribution
+    df: degree of freedom for t-distribution
+    offset: offset
+    """
+    return (
+        generalized_voigt1((x - x0) / sigma, 1, gamma / sigma, df) / sigma * A + offset
+    )
+
+
 def generalized_voigt1(
     x, gamma, df, num_points=32, method="log_trapz", w_min=0.03, w_max=30.0,
 ):
