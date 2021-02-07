@@ -112,9 +112,7 @@ def GeneralizedVoigt1(x, A, x0, sigma, gamma, df, offset):
     df: degree of freedom for t-distribution
     offset: offset
     """
-    return (
-        generalized_voigt1((x - x0) / sigma, 1, gamma / sigma, df) / sigma * A + offset
-    )
+    return generalized_voigt1((x - x0) / sigma, gamma / sigma, df) / sigma * A + offset
 
 
 def generalized_voigt1(
