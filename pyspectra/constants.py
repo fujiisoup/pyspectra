@@ -1,3 +1,4 @@
+import numpy as np
 from .atoms import ATOMIC_MASS, ATOMIC_SYMBOLS
 
 # light speed
@@ -12,9 +13,21 @@ boltzmann_constant = kb
 mp = 1.6726219e-27  # kg
 proton_mass = mp
 
+# electron mass
+me = 9.10938356e-31  # kg
+electron_mass = me
+
+# fine structure constant
+alpha = 7.2973525664e-3  # fine structure constant
+fine_structure_constant = alpha
+
 # atomic mass
 mu = 1.66053906606e-27  # kg
 atomic_mass = mu
+
+# planck constant
+h = 6.62607004e-34  # planck's constant m2 kg/s
+planck_constant = h
 
 # mass of several atoms
 def mass(symbol):
@@ -22,3 +35,8 @@ def mass(symbol):
         return mu * ATOMIC_MASS[ATOMIC_SYMBOLS.index(symbol)]
 
     raise ValueError("mass for {} is not implemented.".format(symbol))
+
+# atomic untis
+class AtomicUnit:
+    a0 = h / (2 * np.pi * me * c * alpha)  # bohr radius in [m]
+
