@@ -148,6 +148,19 @@ def generalized_voigt1(
             x=w,
             axis=0,
         )
+        
+    elif method == "trapz":
+        # w indicates w * gamma**2
+        w = np.linspace(w_min, w_max, num=num_points)
+        w = np.expand_dims(w, (-1,) * x.ndim)
+        sqrt_w = np.sqrt(w + 1)
+        pdf = np.trapz(
+            normal(x / sqrt_w)
+            / sqrt_w
+            * stats.invgamma.pdf(w, a=dfhalf, loc=0, scale=dfhalf * gamma2),
+            x=w,
+            axis=0,
+        )
     else:
         raise NotImplementedError
 
