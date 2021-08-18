@@ -1,6 +1,9 @@
+import os
 import numpy as np
 from scipy.special import wofz, gamma, gammaincc
 from scipy import stats
+
+from .data import assure_directory, _default_cache_dir
 
 
 def normal(x):
@@ -165,3 +168,80 @@ def generalized_voigt1(
         raise NotImplementedError
 
     return pdf + pdf_lo + pdf_hi
+
+
+def symmetric_stable(x, alpha, method='scipy', options=None):
+    """
+    Levy's alpha stable distribution with beta=0.
+
+    Parameters
+    ----------
+    method:
+        computation method. One of ['scipy' | 'mixture']
+    """
+    if options is None:
+        options = {}
+    if method.lower() == 'scipy':
+        return stats.levy_stable.pdf(x, alpha, beta=0, **options)
+    if method.lower() == 'mixture':
+        return _symmetric_stable_mixture(x, alpha, options)
+
+
+def positive_stable(x, alpha, method='scipy', options=None):
+    """
+    Levy's alpha stable distribution with beta=1.
+
+    Parameters
+    ----------
+    method:
+        computation method. One of ['scipy' | ]
+    """
+    if options is None:
+        options = {}
+    if method.lower() == 'scipy':
+        return stats.levy_stable.pdf(x, alpha, beta=1, **options)
+
+
+def _symmetric_stable_mixture(x, alpha, options):
+    """
+    Mixture approximations for symmetric stable distribution
+
+    kuruoglu_approximation_1998,
+	Approximation of alpha-stable probability densities using finite {Gaussian} mixtures
+    """
+    x = np.array(x)[..., np.newaxis]
+    alpha = np.array(alpha)[..., np.newaxis]
+
+    # default number of points
+    num_points = getattr(options, 'num_points', 100)
+    scale = np.cos(np.pi * alpha / 4)**(2 / alpha) * 2
+
+    # integration based on the gaussian hermite quadrature rule
+    # TODO optimize scale
+    v = np.linspace(0, 30, num_points+1)[1:]**2
+    w = np.gradient(v)
+
+    # TODO enable to use custom method
+    mixture = positive_stable(v / scale, alpha / 2, method='scipy') / scale
+    gaussians = normal(x / np.sqrt(v)) / np.sqrt(v)
+    return np.sum(gaussians * mixture * w, axis=-1)
+
+
+# interpolation instance for the positive stable distribution
+_PSTABLE_INTERP = None
+
+def _positive_stable_interp(x, alpha, options):
+    """
+    Positive stable distribution based on interpolation
+    """
+    force_compute = getattr(options, 'force_compute', False)
+    if _PSTABLE_INTERP is None or force_compute:
+        # read the precomputed data
+        cache_dir = os.sep.join(
+            (_default_cache_dir, "stats"))
+        assure_directory(cache_dir)
+        filename = os.sep.join((cache_dir, "positive_stable.txt"))
+        if os.path.exists(filename):
+            data = np.loadtxt(filename)
+
+    return _PSTABLE_INTERP(x, alpha)
