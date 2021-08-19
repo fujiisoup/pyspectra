@@ -103,6 +103,13 @@ def voigt_fast(x, A, x0, sigma, gamma, offset):
     raise NotImplementedError
 
 
+def student_t(x, df):
+    """
+    Student's t-distribution with degree of freedom of df
+    """
+    return stats.t.pdf(x, df=df)
+
+
 def GeneralizedVoigt1(x, A, x0, sigma, gamma, df, offset):
     """
     Generalized voigt function with scale.
@@ -170,36 +177,45 @@ def generalized_voigt1(
     return pdf + pdf_lo + pdf_hi
 
 
-def symmetric_stable(x, alpha, method='scipy', options=None):
+def symmetric_stable(x, alpha, method='pylevy', options=None):
     """
     Levy's alpha stable distribution with beta=0.
 
     Parameters
     ----------
     method:
-        computation method. One of ['scipy' | 'mixture']
+        computation method. One of ['scipy' | 'pylevy' | 'mixture']
+    In order to use `pylevy`, it should be installed by
+    
+    >>> pip install git+https://github.com/josemiotto/pylevy.git
     """
     if options is None:
         options = {}
     if method.lower() == 'scipy':
         return stats.levy_stable.pdf(x, alpha, beta=0, **options)
+    if method.lower() == 'pylevy':
+        import levy
+        return levy.levy(x, alpha, beta=0, mu=0.0, sigma=1.0, cdf=False)
     if method.lower() == 'mixture':
         return _symmetric_stable_mixture(x, alpha, options)
 
 
-def positive_stable(x, alpha, method='scipy', options=None):
+def positive_stable(x, alpha, method='pylevy', options=None):
     """
     Levy's alpha stable distribution with beta=1.
 
     Parameters
     ----------
     method:
-        computation method. One of ['scipy' | ]
+        computation method. One of ['scipy' | 'pylevy']
     """
     if options is None:
         options = {}
     if method.lower() == 'scipy':
         return stats.levy_stable.pdf(x, alpha, beta=1, **options)
+    if method.lower() == 'pylevy':
+        import levy
+        return levy.levy(x, alpha, beta=1, mu=0.0, sigma=1.0, cdf=False)
 
 
 def _symmetric_stable_mixture(x, alpha, options):
@@ -210,21 +226,36 @@ def _symmetric_stable_mixture(x, alpha, options):
 	Approximation of alpha-stable probability densities using finite {Gaussian} mixtures
     """
     x = np.array(x)[..., np.newaxis]
-    alpha = np.array(alpha)[..., np.newaxis]
+    if not np.isscalar(alpha):
+        raise ValueError('alpha must be a scalar, not an array.')
 
     # default number of points
-    num_points = getattr(options, 'num_points', 100)
+    num_points = getattr(options, 'num_points', 31)
     scale = np.cos(np.pi * alpha / 4)**(2 / alpha) * 2
 
     # integration based on the gaussian hermite quadrature rule
     # TODO optimize scale
-    v = np.linspace(0, 30, num_points+1)[1:]**2
+    #v, w = np.polynomial.laguerre.laggauss(num_points)
+    vmax = 1000
+    log_vmin = ((alpha - 2) * 10 + 3) / 2
+    sigma_max = np.sqrt(vmax) / 3
+    v = np.logspace(log_vmin, np.log10(vmax), base=10, num=num_points+1)[1:]
     w = np.gradient(v)
-
+    
     # TODO enable to use custom method
     mixture = positive_stable(v / scale, alpha / 2, method='scipy') / scale
+    
+    # gaussians
     gaussians = normal(x / np.sqrt(v)) / np.sqrt(v)
-    return np.sum(gaussians * mixture * w, axis=-1)
+    gaussians = np.sum(gaussians * mixture * w, axis=-1)
+    gaussian_edge = normal(sigma_max / np.sqrt(v)) / np.sqrt(v)
+    gaussian_edge = np.sum(gaussian_edge * mixture * w, axis=-1)
+    
+    # use power from the largest v
+    power = np.abs(x[:, 0])**(-alpha-1)
+    power_edge = np.abs(sigma_max)**(-alpha-1)
+    power = power / power_edge * gaussian_edge
+    return np.where(np.abs(x[:, 0]) < sigma_max, gaussians, power)
 
 
 # interpolation instance for the positive stable distribution

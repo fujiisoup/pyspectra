@@ -4,20 +4,23 @@ import pytest
 from pyspectra import profiles
 
 
-# @pytest.mark.parametrize("alpha", [0.5, 1, 1.5, 2])
-@pytest.mark.parametrize("alpha", [1.5])
+#@pytest.mark.parametrize("alpha", [1.2, 1.5, 1.9, 1.99])
+@pytest.mark.parametrize("alpha", [1.9, 1.99])
 def test_symmetric_stable(alpha):
     x = np.logspace(-2, 2, num=100)
     expected = profiles.symmetric_stable(x, alpha=alpha, method='scipy')
-    actual = profiles.symmetric_stable(x, alpha=alpha, method='mixture')
+    actual = profiles.symmetric_stable(x, alpha=alpha, method='pylevy')
 
+    '''
     import matplotlib.pyplot as plt
     plt.loglog(x, expected, label='expected')
     plt.loglog(x, actual, label='actual')
     plt.ylim(1e-6, 1)
     plt.legend()
     plt.show()
-    assert np.allclose(expected, actual)    
+    '''
+
+    assert np.allclose(expected, actual, atol=1e-3, rtol=0.1)
 
 
 @pytest.mark.parametrize("df", [1, 2, 10])
