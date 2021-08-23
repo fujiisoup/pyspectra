@@ -15,7 +15,7 @@ def laplace_transform(s, func, a=0, b=np.infty):
     return integrate.quad(f, a, b, args=(s))[0]
 
 
-@pytest.mark.parametrize("alpha", [0.4, 0.9])
+@pytest.mark.parametrize("alpha", [0.4, 0.9, 0.99])
 def _test_symmetric_geostable_laplace(alpha):
     s = np.logspace(-2, 2, base=10, num=31)
     actual = laplace_transform(
@@ -33,20 +33,35 @@ def _test_symmetric_geostable_laplace(alpha):
     '''
 
 
-@pytest.mark.parametrize("alpha", [0.8, 0.9])
-def test_generalized_mittag_leffler(alpha):
+@pytest.mark.parametrize("alpha", [0.4, 0.9])
+@pytest.mark.parametrize("levy_method", ['scipy', 'pylevy'])
+def _test_generalized_mittag_leffler(alpha, levy_method):
     # make sure the distribution with nu = 1 is same with the usual mittag_leffler
     x = np.logspace(-3, 3, num=100)
-    expected = profiles.mittag_leffler(x, alpha=alpha, method='mixture', options={'num_points': 301})
+    expected = profiles.mittag_leffler(x, alpha=alpha, method='mixture', options={'num_points': 1001})
     actual = profiles.generalized_mittag_leffler(
-        x, alpha=alpha, nu=1, method='mixture', options={'num_points': 301})
+        x, alpha=alpha, nu=1, method='mixture', options={'num_points': 301, 'levy_method': levy_method})
 
     import matplotlib.pyplot as plt
     plt.loglog(x, actual, label='actual')
-    plt.loglog(x, expected, label='expected')
+    plt.loglog(x, expected, '--', label='expected')
     plt.legend()
     plt.show()
-    raise ValueError
+    assert np.allclose(actual, expected, rtol=1e-1)
+
+
+@pytest.mark.parametrize(("alpha", "nu"), [(0.4, 1.5), (0.9, 1.2)])
+def test_generalized_mittag_leffler_laplace(alpha, nu):
+    # make sure the distribution with nu = 1 is same with the usual mittag_leffler
+    x = np.logspace(-3, 3, num=100)
+    actual = profiles.generalized_mittag_leffler(
+        x, alpha=alpha, nu=nu, method='mixture', options={'num_points': 301})
+
+    import matplotlib.pyplot as plt
+    plt.loglog(x, actual, label='actual')
+    # plt.loglog(x, expected, '--', label='expected')
+    plt.legend()
+    plt.show()
 
 
 @pytest.mark.parametrize("alpha", [0.9])

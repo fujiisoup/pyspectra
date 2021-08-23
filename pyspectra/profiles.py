@@ -325,7 +325,10 @@ def _mittag_leffler_exponential_mixture(x, alpha, options):
     # the best digitization method may vary depending on x
     log_vmin = -5
     log_vmax = 5
-    y = np.logspace(log_vmin, log_vmax, base=10, num=num_points)
+    y = np.concatenate([
+        np.logspace(log_vmin, 0, base=10, num=num_points // 2, endpoint=False),
+        np.logspace(0, log_vmax, base=10, num=num_points // 2, endpoint=False)
+    ])
     w = np.gradient(y)
     
     # TODO enable to use custom method
@@ -357,18 +360,13 @@ def _generalized_mittag_leffler_gamma_mixture(x, delta, nu, options):
     # [hint] 
     # the mixture distribution has a sharp peak around 1 if alpha ~ 1,
     # the best digitization method may vary depending on x
-    log_vmin = -2
-    log_vmax = 2
+    log_vmin = -3
+    log_vmax = 4
     y = np.logspace(log_vmin, log_vmax, base=10, num=num_points)
     w = np.gradient(y)
     
+    scale = 1 - delta
     return np.sum(
         positive_stable(y, alpha=delta, method=levy_method) * 
-        generalized_gamma(x / y, nu, delta / 2) / y * 
+        generalized_gamma(x / (y * scale), nu, delta) / (y * scale) * 
         w, axis=-1)
-    '''
-    return np.sum(
-        positive_stable(x / y, alpha=delta*2) * 
-        generalized_gamma(y, nu, delta) / y * 
-        w, axis=-1)
-    '''
