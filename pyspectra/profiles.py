@@ -5,6 +5,20 @@ from scipy import stats
 
 from .data import assure_directory, _default_cache_dir
 
+try:
+    import levy
+    HAS_LEVY = True
+except ImportError:
+    HAS_LEVY = False
+
+
+def _assert_has_levy(function):
+    if not HAS_LEVY:
+        raise ImportError(
+            "levy should be installed to use {}.\n".format(function) + 
+            "try `pip install pylevy`."
+        )
+
 
 def normal(x):
     return 1 / np.sqrt(2.0 * np.pi) * np.exp(-0.5 * x ** 2)
@@ -194,7 +208,7 @@ def symmetric_stable(x, alpha, method='pylevy', options=None):
     if method.lower() == 'scipy':
         return stats.levy_stable.pdf(x, alpha, beta=0, **options)
     if method.lower() == 'pylevy':
-        import levy
+        _assert_has_levy('symmetric_stable')
         return levy.levy(x, alpha, beta=0, mu=0.0, sigma=1.0, cdf=False)
     if method.lower() == 'mixture':
         return _symmetric_stable_mixture(x, alpha, options)
@@ -214,7 +228,7 @@ def positive_stable(x, alpha, method='pylevy', options=None):
     if method.lower() == 'scipy':
         return stats.levy_stable.pdf(x, alpha, beta=1, **options)
     if method.lower() == 'pylevy':
-        import levy
+        _assert_has_levy('positive_stable')
         return levy.levy(x, alpha, beta=1, mu=0.0, sigma=1.0, cdf=False)
 
 
@@ -230,7 +244,7 @@ def _symmetric_stable_mixture(x, alpha, options):
         raise ValueError('alpha must be a scalar, not an array.')
 
     # default number of points
-    num_points = getattr(options, 'num_points', 31)
+    num_points = options.get('num_points', 31)
     scale = np.cos(np.pi * alpha / 4)**(2 / alpha) * 2
 
     # integration based on the gaussian hermite quadrature rule
@@ -258,21 +272,103 @@ def _symmetric_stable_mixture(x, alpha, options):
     return np.where(np.abs(x[:, 0]) < sigma_max, gaussians, power)
 
 
-# interpolation instance for the positive stable distribution
-_PSTABLE_INTERP = None
+def mittag_leffler(x, alpha, method='mixture', options=None):
+    r"""
+    i.e., the symmetric geometric syable distribution defined on x in [0, \infty]
+    https://en.wikipedia.org/wiki/Geometric_stable_distribution
 
-def _positive_stable_interp(x, alpha, options):
+    Its laplace distribution is 
+    1 / (1 + s^\alpha)
     """
-    Positive stable distribution based on interpolation
-    """
-    force_compute = getattr(options, 'force_compute', False)
-    if _PSTABLE_INTERP is None or force_compute:
-        # read the precomputed data
-        cache_dir = os.sep.join(
-            (_default_cache_dir, "stats"))
-        assure_directory(cache_dir)
-        filename = os.sep.join((cache_dir, "positive_stable.txt"))
-        if os.path.exists(filename):
-            data = np.loadtxt(filename)
+    if options is None:
+        option = {}
+    if method in ['mixture', 'exponential_mixture']:
+        return _mittag_leffler_exponential_mixture(x, alpha, options)
+    if method == 'gammma_mixture':
+        return _generalized_mittag_leffler_gamma_mixture(x, delta, 1, options)
 
-    return _PSTABLE_INTERP(x, alpha)
+
+def generalized_gamma(x, r, alpha):
+    """
+    generalized gamma distribution
+    """
+    return np.abs(alpha) / gamma(r) * x**(alpha * r - 1) * np.exp(-x**alpha)
+
+
+def generalized_mittag_leffler(x, alpha, nu, method='mixture', options=None):
+    r"""
+    A generalization of mittag_leffler distribution.
+
+    Its laplace distribution is 
+    1 / (1 + s^\alpha)^\nu
+    """
+    if options is None:
+        option = {}
+    if method == 'mixture':
+        return _generalized_mittag_leffler_gamma_mixture(
+            x, delta=alpha, nu=nu, options=options)
+
+
+def _mittag_leffler_exponential_mixture(x, alpha, options):
+    """
+    Mixture representation of Linnik distribution revisited
+    by Kozubowski
+    """
+    x = np.array(x)[..., np.newaxis]
+    # TODO     
+    # # default number of points
+    num_points = options.get('num_points', 31)
+
+    # TODO optimize scale
+    # [hint] 
+    # the mixture distribution has a sharp peak around 1 if alpha ~ 1,
+    # the best digitization method may vary depending on x
+    log_vmin = -5
+    log_vmax = 5
+    y = np.logspace(log_vmin, log_vmax, base=10, num=num_points)
+    w = np.gradient(y)
+    
+    # TODO enable to use custom method
+    yalpha = y**alpha
+    mixture = yalpha / (yalpha**2 + 1 + 2 * yalpha * np.cos(np.pi * alpha))
+    
+    # gaussians
+    exponentials = np.exp(-x * y)
+    exponentials = np.sum(exponentials * mixture * w, axis=-1) * np.sin(np.pi * alpha) / np.pi
+    return exponentials
+
+
+def _generalized_mittag_leffler_gamma_mixture(x, delta, nu, options):
+    r"""
+    Mixture representation of generalized mittag_leffler distribution by 
+    generalized-gamma mixture 
+
+    On Mixture Representations for the Generalized Linnik Distribution and Their Applications in Limit Theorems
+    Korolev et al.
+    Theorem 4
+    """
+    x = np.array(x)[..., np.newaxis]
+    # TODO     
+    # # default number of points
+    num_points = options.get('num_points', 31)
+    levy_method = options.get('levy_method', 'scipy')
+
+    # TODO optimize scale
+    # [hint] 
+    # the mixture distribution has a sharp peak around 1 if alpha ~ 1,
+    # the best digitization method may vary depending on x
+    log_vmin = -2
+    log_vmax = 2
+    y = np.logspace(log_vmin, log_vmax, base=10, num=num_points)
+    w = np.gradient(y)
+    
+    return np.sum(
+        positive_stable(y, alpha=delta, method=levy_method) * 
+        generalized_gamma(x / y, nu, delta / 2) / y * 
+        w, axis=-1)
+    '''
+    return np.sum(
+        positive_stable(x / y, alpha=delta*2) * 
+        generalized_gamma(y, nu, delta) / y * 
+        w, axis=-1)
+    '''
