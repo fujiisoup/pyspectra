@@ -1,15 +1,19 @@
 import os
 import numpy as np
-from scipy.special import wofz, gamma, gammaincc
-from scipy import stats
+from scipy import interpolate, stats, special
 
 from .data import assure_directory, _default_cache_dir
+import pkg_resources
 
 try:
     import levy
     HAS_LEVY = True
 except ImportError:
     HAS_LEVY = False
+
+
+FILE_SYMMETRIC_LEVY = pkg_resources.resource_filename(__name__, "data/symmetric_levy.npz")
+FILE_POSITIVE_LEVY = pkg_resources.resource_filename(__name__, "data/positive_levy.npz")
 
 
 def _assert_has_levy(function):
@@ -20,7 +24,171 @@ def _assert_has_levy(function):
         )
 
 
-def symmetric_stable(x, alpha, method='pylevy', options=None):
+class Interpolator:
+    def __init__(self, filename):
+        self.filename = filename
+        self._interpolator = None
+
+    def __call__(self, *args):
+        if self._interpolator is None:
+            self._load()
+        return self._call(*args)
+    
+    def _load(self):
+        raise NotImplementedError
+    
+    def _call(self, *args):
+        raise NotImplementedError
+
+
+class LevyInterpolator(Interpolator):
+    def _load(self):
+        npzfile = np.load(self.filename)
+        data = npzfile['data']
+        x = npzfile['x']
+        alpha = npzfile['alpha']
+        x_asymp = npzfile['x_asymp']
+        self._interp_xasymp = interpolate.RegularGridInterpolator(
+            (alpha, ), x_asymp, method='linear', bounds_error=False, fill_value=None
+        )
+        self._interpolator = interpolate.RegularGridInterpolator(
+            (alpha, x), data, method='linear', bounds_error=False, fill_value=None
+        )
+
+class SymmetricLevyInterpolator(LevyInterpolator):
+    def __init__(self):
+        super().__init__(FILE_SYMMETRIC_LEVY)
+    
+    def _call(self, x, alpha):
+        x = np.abs(x)
+        alphax = np.stack(np.broadcast_arrays(alpha, x), axis=-1)
+        value = self._interpolator(alphax)
+        x_asymp = self._interp_xasymp(x)
+        return np.where(x < x_asymp, value, self._asymp(x, alpha))
+
+    def _asymp(self, x, alpha):
+        # asymptotic expansions
+        return np.sin(np.pi * alpha / 2) * special.gamma(alpha + 1) / np.pi / x**(1 + alpha)
+
+symmetricLevyInterpolator = SymmetricLevyInterpolator()
+
+
+class PositiveLevyInterpolator(LevyInterpolator):
+    def __init__(self):
+        super().__init__(FILE_POSITIVE_LEVY)
+    
+    def _call(self, x, alpha):
+        alphax = np.stack(np.broadcast_arrays(alpha, x), axis=-1)
+        value = self._interpolator(alphax)
+        x_asymp = self._interp_xasymp(x)
+        return np.where(x < x_asymp, value, _positive_levy_asymptotic(x, alpha, n=3))
+
+
+positiveLevyInterpolator = PositiveLevyInterpolator()
+
+
+def build_levy():
+    """
+    Build a database for levy pdf
+    """
+    _build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    _build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+
+
+def _build_symmetric_levy(n_alpha, x_min, x_max, n_x, rtol):
+    """
+    Precompute the pdf of symmetric levy distribution.
+    """
+    alphas = np.linspace(0, 2, n_alpha+1)[1:]
+    x = np.concatenate([[0], np.logspace(np.log10(x_min), np.log10(x_max), n_x)])
+
+    data = []
+    x_asymp = []
+    for alpha in alphas:
+        computed = stats.levy_stable.pdf(x, alpha, beta=0)
+        asymp = np.sin(np.pi * alpha / 2) * special.gamma(alpha + 1) / np.pi / x**(1 + alpha)
+        merged = np.array(computed)
+        
+        # to avoid the instability, we replace the instable part by asymptotic expansions
+        idx = np.abs(np.diff(np.log(computed)) / np.diff(np.log(x))) > 3
+        idx = np.concatenate([idx[1:], [False, False]])
+        idx[x < 10] = False
+
+        # if approaching to the asymptotic, replace it
+        idx += (x > 10) * (np.abs(np.log(computed / asymp)) < rtol)
+        if np.sum(idx) > 0:
+            min_idx = np.min(np.arange(n_x + 1)[idx])
+            merged[min_idx:] = asymp[min_idx:]
+            x_asymp.append(x[min_idx])
+        else:
+            x_asymp.append(x[-1])
+
+        idx = (x < 0.3) * (np.abs(np.log(computed / computed[0])) < rtol)
+        if np.sum(idx) > 0:
+            max_idx = np.max(np.arange(n_x + 1)[idx])
+            merged[:max_idx] = computed[0]
+        data.append(merged)    
+
+    np.savez(FILE_SYMMETRIC_LEVY, data=data, x=x, alpha=alphas, x_asymp=x_asymp)
+
+
+def _positive_levy_asymptotic(x, alpha, n=None):
+    """
+    Asymptotic of positive levy
+    """
+    if n is None:
+        return np.sin(alpha * np.pi) * special.gamma(alpha + 1) * x**(-alpha - 1) / np.pi
+    else:
+        x = x[..., np.newaxis]
+        alpha = np.array(alpha)[..., np.newaxis]
+        n = np.arange(1, n+1)
+        mat = (-1)**n * np.sin(n * alpha * np.pi) / special.gamma(n + 1) * special.gamma(alpha * n + 1) * x**(-alpha * n - 1)
+        return -np.nansum(mat, axis=-1) / np.pi
+
+
+def _build_positive_levy(n_alpha, x_min, x_max, n_x, rtol):
+    """
+    Precompute the pdf of symmetric levy distribution.
+    """
+    alphas = 1 - np.linspace(0, 1, n_alpha + 1, endpoint=False)[1:]**2
+    alphas = np.sort(alphas)
+    x = np.concatenate([
+        np.logspace(np.log10(x_min), np.log10(0.3), n_x // 3, endpoint=False),
+        np.logspace(np.log10(0.3), np.log10(3), n_x // 3, endpoint=False),
+        np.logspace(np.log10(3), np.log10(x_max), n_x // 3)
+    ])
+    n_x = x.size
+
+    data = []
+    x_asymp = []
+    for alpha in alphas:
+        scale = np.cos(0.5 * np.pi * alpha)**(1 / alpha)
+        computed = stats.levy_stable.pdf(x / scale, alpha, beta=1) / scale
+        asymp = _positive_levy_asymptotic(x, alpha, n=3000)
+        computed = np.where(np.isfinite(computed), computed, asymp)
+        # asymp = _positive_levy_asymptotic(x, alpha, n=3)
+        merged = np.array(computed)
+        
+        # to avoid the instability, we replace the instable part by asymptotic expansions
+        idx = ~(np.abs(np.diff(np.log(computed)) / np.diff(np.log(x))) < 5)
+        idx = np.concatenate([idx[1:], [False, False]])
+        #idx += ~(computed > 0)
+        idx[x < 2] = False
+
+        # if approaching to the asymptotic, replace it
+        idx += (x > 10) * (np.abs(np.log(computed / asymp)) < rtol)
+        if np.sum(idx) > 0:
+            min_idx = np.min(np.arange(n_x)[idx])
+            merged[min_idx:] = asymp[min_idx:]
+            x_asymp.append(x[min_idx])
+        else:
+            x_asymp.append(x[-1])
+        data.append(merged) 
+
+    np.savez(FILE_POSITIVE_LEVY, data=data, x=x, alpha=alphas, x_asymp=x_asymp)
+
+
+def symmetric_stable(x, alpha, method='interpolate', options=None):
     """
     Levy's alpha stable distribution with beta=0.
 
@@ -36,6 +204,8 @@ def symmetric_stable(x, alpha, method='pylevy', options=None):
         options = {}
     if method.lower() == 'scipy':
         return stats.levy_stable.pdf(x, alpha, beta=0, **options)
+    if method.lower() == 'interpolate':
+        return symmetricLevyInterpolator(x, alpha)
     if method.lower() == 'pylevy':
         _assert_has_levy('symmetric_stable')
         return levy.levy(x, alpha, beta=0, mu=0.0, sigma=1.0, cdf=False)
@@ -43,19 +213,22 @@ def symmetric_stable(x, alpha, method='pylevy', options=None):
         return _symmetric_stable_mixture(x, alpha, options)
 
 
-def positive_stable(x, alpha, method='pylevy', options=None):
+def positive_stable(x, alpha, method='interpolate', options=None):
     """
     Levy's alpha stable distribution with beta=1.
 
     Parameters
     ----------
     method:
-        computation method. One of ['scipy' | 'pylevy']
+        computation method. One of ['scipy' | 'interpolate' | 'pylevy']
     """
     if options is None:
         options = {}
     if method.lower() == 'scipy':
-        return stats.levy_stable.pdf(x, alpha, beta=1, **options)
+        scale = np.cos(0.5 * np.pi * alpha)**(1 / alpha)
+        return stats.levy_stable.pdf(x / scale, alpha, beta=1, **options) / scale
+    if method.lower() == 'interpolate':
+        return positiveLevyInterpolator(x, alpha)
     if method.lower() == 'pylevy':
         _assert_has_levy('positive_stable')
         return levy.levy(x, alpha, beta=1, mu=0.0, sigma=1.0, cdf=False)
@@ -121,7 +294,7 @@ def generalized_gamma(x, r, alpha):
     """
     generalized gamma distribution
     """
-    return np.abs(alpha) / gamma(r) * x**(alpha * r - 1) * np.exp(-x**alpha)
+    return np.abs(alpha) / special.gamma(r) * x**(alpha * r - 1) * np.exp(-x**alpha)
 
 
 def generalized_mittag_leffler(x, alpha, nu, method='mixture', options=None):
