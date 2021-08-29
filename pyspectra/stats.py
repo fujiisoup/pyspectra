@@ -214,6 +214,7 @@ class ScaleMixture:
         Asymptotic form is used for the smaller / larger x than these values.
     """
     def __call__(self, x, n_points, *args, **kwargs):
+        x = np.asarray(x)
         scales = self.scale_func(x, n_points, *args, **kwargs)
         values = integrate.trapz(
             self.src_dist(x[..., np.newaxis] / scales, *args, **kwargs) / scales * 
@@ -356,7 +357,7 @@ def generalized_mittag_leffler(
     1 / (1 + s^\alpha)^\nu
     """
     if options is None:
-        option = {}
+        options = {}
 
     n_points = options.get('num_points', 31)
 
@@ -387,13 +388,12 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
     def scale_func(self, x, n_points, delta, gamma):
         # TODO optimize
         vmax = 1000
-        log_vmin = ((delta - 2) * 10 + 3) / 2
+        log_vmin = ((delta - 3) * 10 + 3) / 2
         sigma_max = np.sqrt(vmax) / 3
         return np.logspace(log_vmin, np.log10(vmax), base=10, num=n_points+1)[1:]
 
     def src_dist(self, x, gamma, delta):
-        dg = delta**(1 / gamma)
-        return np.exp(-x / dg) / dg
+        return np.exp(-x)
 
     def weight_dist(self, x, gamma, delta):
         y = 1 / x
@@ -403,9 +403,10 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
         Fg = 1 - 1 / pi_g * arccot(1 / np.tan(pi_g) + y**gamma / np.sin(pi_g))
 
         value = np.sin(pi_g * Fg / delta) / (y_g**2 + 2 * y_g * np.cos(pi_g) + 1)**(0.5 / delta)
-        return value * y
+        return value * y / np.pi
 
 generalizedMittagLeffler_ExponentialMixture = GeneralizedMittagLeffler_ExponentialMixture()
+
 
 def generalized_gamma(x, r, alpha):
     """

@@ -41,18 +41,80 @@ def _test_positive_stable(alpha):
         assert np.allclose(expected[idx], actual[idx], atol=1e-5, rtol=0.01)
 
 
-@pytest.mark.parametrize("alpha", [0.4, 0.9, 0.99])
-def test_generalized_mittag_leffler(alpha):
+def generalized_mittag(x, alpha, nu):
+    r"""
+    Mixture representation of generalized mittag_leffler distribution by 
+    generalized-gamma mixture 
+
+    On Mixture Representations for the Generalized Linnik Distribution and Their Applications in Limit Theorems
+    Korolev et al.
+    Theorem 4
+    """
+    x = np.array(x)[..., np.newaxis]
+    num_points = 301
+
+    delta = alpha
+    # TODO optimize scale
+    # [hint] 
+    # the mixture distribution has a sharp peak around 1 if alpha ~ 1,
+    # the best digitization method may vary depending on x
+    log_vmin = -3
+    log_vmax = 4
+    y = np.logspace(log_vmin, log_vmax, base=10, num=num_points)
+    w = np.gradient(y)
+    
+    scale = 1 - delta
+    return np.sum(
+        pyspectra.stats.positive_stable(y, alpha=delta, method='scipy') * 
+        pyspectra.stats.generalized_gamma(x / (y * scale), nu, delta) / (y * scale) * 
+        w, axis=-1)
+
+
+@pytest.mark.parametrize("alpha", [0.4, 0.9])
+@pytest.mark.parametrize("nu", [1.4, 0.9])
+def test_generalized_mittag_leffler_laplace(alpha, nu):
+    s = np.logspace(-2, 2, num=31)
+    actual_laplace = laplace_transform(
+        s, lambda x: pyspectra.stats.generalized_mittag_leffler(
+            x, alpha=alpha, nu=nu, method='exponential_mixture',
+            options={'num_points': 301}
+        )
+    )
+    expected_laplace = 1 / (1 + s**alpha)**nu
+    assert np.allclose(actual_laplace, expected_laplace, rtol=1e-2)
+
+
+@pytest.mark.parametrize("alpha", [0.4, 0.9])
+def test_generalized_mittag_leffler_compare_ggamma_mixture(alpha):
+    nu = 1.5
     # make sure the distribution with nu = 1 is same with the usual mittag_leffler
     x = np.logspace(-2, 2, num=101)
     actual = pyspectra.stats.generalized_mittag_leffler(
-        x, alpha=alpha, nu=1.5, method='exponential_mixture', 
+        x, alpha=alpha, nu=nu, method='exponential_mixture', 
         options={'num_points': 301}
     )
+    expected = generalized_mittag(x, alpha=alpha, nu=1.5)
+
+    s = np.logspace(-2, 2, num=31)
+    actual_laplace = laplace_transform(
+        s, lambda x: pyspectra.stats.generalized_mittag_leffler(
+            x, alpha=alpha, nu=nu, method='exponential_mixture',
+            options={'num_points': 301}
+        )
+    )
+    expected_laplace = 1 / (1 + s**alpha)**nu
+    assert np.allclose(actual_laplace, expected_laplace, rtol=1e-2)  # TODO increase the accuracy
 
     import matplotlib.pyplot as plt
+    plt.figure(figsize=(15, 5))
+    plt.subplot(1, 2, 1)
     plt.loglog(x, actual, label='actual')
+    plt.loglog(x, expected, '--', label='expected')
     plt.legend()
+
+    plt.subplot(1, 2, 2)
+    plt.loglog(s, actual_laplace, label='actual')
+    plt.loglog(s, expected_laplace, '--', label='actual')
     plt.show()
     
     assert (actual >= 0).all()
