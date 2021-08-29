@@ -217,19 +217,38 @@ class ScaleMixture:
         x = np.asarray(x)
         scales = self.scale_func(x, n_points, *args, **kwargs)
         values = integrate.trapz(
-            self.src_dist(x[..., np.newaxis] / scales, *args, **kwargs) / scales * 
+            self.src_dist(x[..., np.newaxis], scales, *args, **kwargs) * 
             self.weight_dist(scales, *args, **kwargs), 
             x=scales,
         axis=-1)
         if getattr(self, 'x_asymp_min', None) is not None:
             values = np.where(
-                x < self.x_asymp_min(x, *args, **kwargs), 
+                x < self.x_asymp_min(*args, **kwargs), 
                 self.asymp_min(x, *args, **kwargs), values)
         if getattr(self, 'x_asymp_max', None) is not None:
             values = np.where(
-                x > self.x_asymp_max(x, *args, **kwargs), 
+                x > self.x_asymp_max(*args, **kwargs), 
                 self.asymp_max(x, *args, **kwargs), values)
         return values
+
+    def src_dist(self, x, scales, *args, **kwargs):
+        raise NotImplementedError
+
+    def weight_dist(self, x, *args, **kwargs):
+        raise NotImplementedError
+
+    def quad(self, x, *args, **kwargs):
+        """More accurate calculation based on the numerical integration"""
+        x = np.asarray(x)
+        shape = x.shape
+        x = x.ravel()
+        result = []
+        for x1 in x:
+            result.append(integrate.quad(
+                lambda s: self.src_dist(x1, s, *args, **kwargs) * self.weight_dist(s, *args, **kwargs),
+                0, np.infty
+            )[0])
+        return np.array(result).reshape(shape)
 
 
 def symmetric_stable(x, alpha, method='interpolate', options=None):
@@ -386,16 +405,21 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
     is used.
     """
     def scale_func(self, x, n_points, delta, gamma):
-        # TODO optimize
-        vmax = 1000
-        log_vmin = ((delta - 3) * 10 + 3) / 2
-        sigma_max = np.sqrt(vmax) / 3
-        return np.logspace(log_vmin, np.log10(vmax), base=10, num=n_points+1)[1:]
+        # TODO optimize more
+        return np.logspace(
+            np.log10(np.minimum(x, 10) * 1e-2), 
+            np.log10(np.maximum(x, 0.1) * 1e2), base=10, num=n_points, axis=-1
+        )
+        log10_vmax = 3.5
+        return np.logspace(
+            np.log10(self.x_asymp_min(delta, gamma)) - 1.5, 
+            log10_vmax, base=10, num=n_points
+        )
 
-    def src_dist(self, x, gamma, delta):
-        return np.exp(-x)
+    def src_dist(self, x, scales, delta, gamma, *args, **kwargs):
+        return np.exp(-x / scales) / scales
 
-    def weight_dist(self, x, gamma, delta):
+    def weight_dist(self, x, delta, gamma, *args, **kwargs):
         y = 1 / x
 
         pi_g = np.pi * gamma
@@ -405,7 +429,31 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
         value = np.sin(pi_g * Fg / delta) / (y_g**2 + 2 * y_g * np.cos(pi_g) + 1)**(0.5 / delta)
         return value * y / np.pi
 
+    def x_asymp_min(self, delta, gamma, *args, **kwargs):
+        return 3e-3
+
+    def asymp_min(self, x, delta, gamma, *args, **kwargs):
+        gd = gamma / delta
+        return x**(gd - 1) / special.gamma(gd)
+
+    def x_asymp_max(self, *args, **kwargs):
+        return 3e2
+
+    def asymp_max(self, x, delta, gamma, *args, **kwargs):
+        return x**(-1-gamma) / special.gamma(1-gamma) * gamma / delta
+
 generalizedMittagLeffler_ExponentialMixture = GeneralizedMittagLeffler_ExponentialMixture()
+
+
+class GeneralizedMittagLefflerVDF_ExponentialMixture(GeneralizedMittagLeffler_ExponentialMixture):
+    def src_dist(self, x, scales, delta, gamma, power=0.0, **kwargs):
+        """
+        power: correction in the power
+        """
+        xscale = np.sqrt(scales)
+        return special.gammaincc(1 / 2, (x / xscale)**2) / xscale / np.sqrt(2 * np.pi)
+
+generalizedMittagLefflerVDF_ExponentialMixture = GeneralizedMittagLefflerVDF_ExponentialMixture()
 
 
 def generalized_gamma(x, r, alpha):
