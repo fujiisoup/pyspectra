@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from scipy import interpolate, stats, special
+from scipy import integrate, interpolate, stats, special
 
 from .data import assure_directory, _default_cache_dir
 import pkg_resources
@@ -22,6 +22,10 @@ def _assert_has_levy(function):
             "levy should be installed to use {}.\n".format(function) + 
             "try `pip install pylevy`."
         )
+
+
+def normal(x):
+    return 1 / np.sqrt(2.0 * np.pi) * np.exp(-0.5 * x ** 2)
 
 
 class Interpolator:
@@ -188,6 +192,45 @@ def _build_positive_levy(n_alpha, x_min, x_max, n_x, rtol):
     np.savez(FILE_POSITIVE_LEVY, data=data, x=x, alpha=alphas, x_asymp=x_asymp)
 
 
+class ScaleMixture:
+    r"""
+    A class to make a discrete approximation of the scale mixture.
+    Scale mixture of the two distribution
+    \int f(x/s) /s g(s) ds
+
+    Parameters
+    ----------
+    x: nd-array
+        destination at which the mixture distribution is computed
+    scales: 1d-array or nd-array
+    src_dist: callable 
+        source distribution f(x / s)
+    weight_dist: callable   
+        weight distribution g(s)
+    x_asymp_min, x_asymp_max: 
+        Asymptotic form is used for the smaller / larger x than these values.
+        For None, no asymptotics are used.
+    asymp_min, asymp_max: callable
+        Asymptotic form is used for the smaller / larger x than these values.
+    """
+    def __call__(self, x, n_points, *args, **kwargs):
+        scales = self.scale_func(x, n_points, *args, **kwargs)
+        values = integrate.trapz(
+            self.src_dist(x[..., np.newaxis] / scales, *args, **kwargs) / scales * 
+            self.weight_dist(scales, *args, **kwargs), 
+            x=scales,
+        axis=-1)
+        if getattr(self, 'x_asymp_min', None) is not None:
+            values = np.where(
+                x < self.x_asymp_min(x, *args, **kwargs), 
+                self.asymp_min(x, *args, **kwargs), values)
+        if getattr(self, 'x_asymp_max', None) is not None:
+            values = np.where(
+                x > self.x_asymp_max(x, *args, **kwargs), 
+                self.asymp_max(x, *args, **kwargs), values)
+        return values
+
+
 def symmetric_stable(x, alpha, method='interpolate', options=None):
     """
     Levy's alpha stable distribution with beta=0.
@@ -213,27 +256,15 @@ def symmetric_stable(x, alpha, method='interpolate', options=None):
         return _symmetric_stable_mixture(x, alpha, options)
 
 
-def positive_stable(x, alpha, method='interpolate', options=None):
-    """
-    Levy's alpha stable distribution with beta=1.
+class SymmetricStable_ExponentialMixture(ScaleMixture):
+    def scale_func(self, x, n_points, alpha):
+        # TODO optimize scale
+        vmax = 1000
+        log_vmin = ((alpha - 2) * 10 + 3) / 2
+        sigma_max = np.sqrt(vmax) / 3
+        return np.logspace(log_vmin, np.log10(vmax), base=10, num=n_points+1)[1:]
 
-    Parameters
-    ----------
-    method:
-        computation method. One of ['scipy' | 'interpolate' | 'pylevy']
-    """
-    if options is None:
-        options = {}
-    if method.lower() == 'scipy':
-        scale = np.cos(0.5 * np.pi * alpha)**(1 / alpha)
-        return stats.levy_stable.pdf(x / scale, alpha, beta=1, **options) / scale
-    if method.lower() == 'interpolate':
-        return positiveLevyInterpolator(x, alpha)
-    if method.lower() == 'pylevy':
-        _assert_has_levy('positive_stable')
-        return levy.levy(x, alpha, beta=1, mu=0.0, sigma=1.0, cdf=False)
-
-
+        
 def _symmetric_stable_mixture(x, alpha, options):
     """
     Mixture approximations for symmetric stable distribution
@@ -274,7 +305,28 @@ def _symmetric_stable_mixture(x, alpha, options):
     return np.where(np.abs(x[:, 0]) < sigma_max, gaussians, power)
 
 
-def mittag_leffler(x, alpha, method='mixture', options=None):
+def positive_stable(x, alpha, method='interpolate', options=None):
+    """
+    Levy's alpha stable distribution with beta=1.
+
+    Parameters
+    ----------
+    method:
+        computation method. One of ['scipy' | 'interpolate' | 'pylevy']
+    """
+    if options is None:
+        options = {}
+    if method.lower() == 'scipy':
+        scale = np.cos(0.5 * np.pi * alpha)**(1 / alpha)
+        return stats.levy_stable.pdf(x / scale, alpha, beta=1, **options) / scale
+    if method.lower() == 'interpolate':
+        return positiveLevyInterpolator(x, alpha)
+    if method.lower() == 'pylevy':
+        _assert_has_levy('positive_stable')
+        return levy.levy(x, alpha, beta=1, mu=0.0, sigma=1.0, cdf=False)
+
+
+def mittag_leffler(x, alpha, method='exponential_mixture', options=None):
     r"""
     i.e., the symmetric geometric syable distribution defined on x in [0, \infty]
     https://en.wikipedia.org/wiki/Geometric_stable_distribution
@@ -284,20 +336,19 @@ def mittag_leffler(x, alpha, method='mixture', options=None):
     """
     if options is None:
         option = {}
-    if method in ['mixture', 'exponential_mixture']:
+    if method in ['exponential_mixture']:
         return _mittag_leffler_exponential_mixture(x, alpha, options)
     if method == 'gammma_mixture':
         return _generalized_mittag_leffler_gamma_mixture(x, delta, 1, options)
 
 
-def generalized_gamma(x, r, alpha):
-    """
-    generalized gamma distribution
-    """
-    return np.abs(alpha) / special.gamma(r) * x**(alpha * r - 1) * np.exp(-x**alpha)
+class MittagLeffler_ExponentialMixture(ScaleMixture):
+    pass
 
 
-def generalized_mittag_leffler(x, alpha, nu, method='mixture', options=None):
+def generalized_mittag_leffler(
+    x, alpha, nu, method='exponential_mixture', options=None
+):
     r"""
     A generalization of mittag_leffler distribution.
 
@@ -306,9 +357,61 @@ def generalized_mittag_leffler(x, alpha, nu, method='mixture', options=None):
     """
     if options is None:
         option = {}
-    if method == 'mixture':
-        return _generalized_mittag_leffler_gamma_mixture(
-            x, delta=alpha, nu=nu, options=options)
+
+    n_points = options.get('num_points', 31)
+
+    if method == 'exponential_mixture':
+        return generalizedMittagLeffler_ExponentialMixture(
+            x, n_points, gamma=alpha, delta=1/nu
+        )
+
+
+def arccot(x):
+    return np.pi / 2 - np.arctan(x)
+
+
+class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
+    r"""
+    Generalized Mittag Leffler distribution.
+    The laplace transform is
+
+    (1 + delta s^gamma)^(-1/delta)
+
+    Parameterization presented in 
+    
+    "A new family of tempered distributions"
+    Barabesi et al
+    
+    is used.
+    """
+    def scale_func(self, x, n_points, delta, gamma):
+        # TODO optimize
+        vmax = 1000
+        log_vmin = ((delta - 2) * 10 + 3) / 2
+        sigma_max = np.sqrt(vmax) / 3
+        return np.logspace(log_vmin, np.log10(vmax), base=10, num=n_points+1)[1:]
+
+    def src_dist(self, x, gamma, delta):
+        dg = delta**(1 / gamma)
+        return np.exp(-x / dg) / dg
+
+    def weight_dist(self, x, gamma, delta):
+        y = 1 / x
+
+        pi_g = np.pi * gamma
+        y_g = y**gamma
+        Fg = 1 - 1 / pi_g * arccot(1 / np.tan(pi_g) + y**gamma / np.sin(pi_g))
+
+        value = np.sin(pi_g * Fg / delta) / (y_g**2 + 2 * y_g * np.cos(pi_g) + 1)**(0.5 / delta)
+        return value * y
+
+generalizedMittagLeffler_ExponentialMixture = GeneralizedMittagLeffler_ExponentialMixture()
+
+def generalized_gamma(x, r, alpha):
+    """
+    generalized gamma distribution
+    """
+    return np.abs(alpha) / special.gamma(r) * x**(alpha * r - 1) * np.exp(-x**alpha)
 
 
 def _mittag_leffler_exponential_mixture(x, alpha, options):

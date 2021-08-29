@@ -3,10 +3,7 @@ import numpy as np
 from scipy.special import wofz, gamma, gammaincc
 from scipy import stats
 
-
-def normal(x):
-    return 1 / np.sqrt(2.0 * np.pi) * np.exp(-0.5 * x ** 2)
-
+from .stats import normal
 
 gauss = normal
 
