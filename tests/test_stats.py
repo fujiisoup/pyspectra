@@ -1,5 +1,5 @@
 import numpy as np
-from scipy import stats, integrate
+from scipy import special, stats, integrate
 import pytest
 import pyspectra
 
@@ -72,7 +72,7 @@ def generalized_mittag(x, alpha, nu):
 
 @pytest.mark.parametrize("alpha", [0.4, 0.9, 0.99])
 @pytest.mark.parametrize("nu", [1.4, 0.9])
-def test_generalized_mittag_leffler_laplace(alpha, nu):
+def _test_generalized_mittag_leffler_laplace(alpha, nu):
     s = np.logspace(-2, 2, num=31)
     actual_laplace = laplace_transform(
         s, lambda x: pyspectra.stats.generalized_mittag_leffler(
@@ -105,7 +105,7 @@ def test_generalized_mittag_leffler_laplace(alpha, nu):
 
 
 @pytest.mark.parametrize("alpha", [0.4, 0.9])
-def test_generalized_mittag_leffler_compare_ggamma_mixture(alpha):
+def _test_generalized_mittag_leffler_compare_ggamma_mixture(alpha):
     nu = 1.5
     # make sure the distribution with nu = 1 is same with the usual mittag_leffler
     x = np.logspace(-2, 2, num=101)
@@ -140,39 +140,25 @@ def test_generalized_mittag_leffler_compare_ggamma_mixture(alpha):
     assert (actual >= 0).all()
 
 
-@pytest.mark.parametrize("alpha", [0.9])
-def _test_symmetric_geostable(alpha):
-    x = np.logspace(-2, 2, num=100)
-    actual = pyspectra.stats.mittag_leffler(x, alpha=alpha, method='mixture', options={'num_points': 301})
-    actual2 = pyspectra.stats.mittag_leffler(x, alpha=alpha, method='mixture', options={'num_points': 602})
-    assert (actual != actual2).any()
-    assert np.allclose(actual, actual2, rtol=1e-2)
+@pytest.mark.parametrize("gamma", [0.1, 0.5, 0.85])
+def test_gamma_as_exponential_mixture_quad(gamma):
+    x = np.logspace(-1, 2, num=101)
+    numerical = pyspectra.stats.gamma_ExponentialMixture.quad(x, gamma)
+    expected = x**(gamma - 1) / special.gamma(gamma) * np.exp(-x)
+    assert np.allclose(numerical, expected, rtol=1e-3)
 
 
-@pytest.mark.parametrize("alpha", [0.4, 0.9, 0.99])
-def _test_symmetric_geostable_laplace(alpha):
-    s = np.logspace(-2, 2, base=10, num=31)
-    actual = laplace_transform(
-        s, lambda x: pyspectra.stats.mittag_leffler(x, alpha=alpha, method='mixture', options={'num_points': 1001}),
-    )
-    expected = 1 / (1 + s**alpha)
-    assert np.allclose(actual, expected, rtol=1e-1)  # TODO increase the accuracy
-    
-
-
-@pytest.mark.parametrize(("alpha", "nu"), [(0.4, 1.5), (0.9, 1.2)])
-def _test_generalized_mittag_leffler_laplace(alpha, nu):
-    # make sure the distribution with nu = 1 is same with the usual mittag_leffler
-    x = np.logspace(-3, 3, num=100)
-    actual = pyspectra.stats.generalized_mittag_leffler(
-        x, alpha=alpha, nu=nu, method='mixture', options={'num_points': 301})
+@pytest.mark.parametrize("gamma", [0.1, 0.5, 0.85])
+def test_gamma_as_exponential_mixture(gamma):
+    x = np.logspace(-2, 2, num=101)
+    actual = pyspectra.stats.gamma_ExponentialMixture(x, 51, gamma)
+    numerical = pyspectra.stats.gamma_ExponentialMixture.quad(x, gamma)
+    expected = x**(gamma - 1) / special.gamma(gamma) * np.exp(-x)
 
     import matplotlib.pyplot as plt
     plt.loglog(x, actual, label='actual')
-    # plt.loglog(x, expected, '--', label='expected')
+    plt.loglog(x, numerical, label='numerical')
+    plt.loglog(x, expected, '--', label='expected')
     plt.legend()
     plt.show()
-
-
-
 

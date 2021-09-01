@@ -237,6 +237,8 @@ class ScaleMixture:
     def weight_dist(self, x, *args, **kwargs):
         raise NotImplementedError
 
+    scale_range = (0, np.infty)  # integration range of the mixture 
+
     def quad(self, x, *args, **kwargs):
         """More accurate calculation based on the numerical integration"""
         x = np.asarray(x)
@@ -246,7 +248,7 @@ class ScaleMixture:
         for x1 in x:
             result.append(integrate.quad(
                 lambda s: self.src_dist(x1, s, *args, **kwargs) * self.weight_dist(s, *args, **kwargs),
-                0, np.infty
+                self.scale_range[0], self.scale_range[1],
             )[0])
         return np.array(result).reshape(shape)
 
@@ -454,6 +456,26 @@ class GeneralizedMittagLefflerVDF_ExponentialMixture(GeneralizedMittagLeffler_Ex
         return special.gammaincc(1 / 2, (x / xscale)**2) / xscale / np.sqrt(2 * np.pi)
 
 generalizedMittagLefflerVDF_ExponentialMixture = GeneralizedMittagLefflerVDF_ExponentialMixture()
+
+
+class Gamma_ExponentialMixture(ScaleMixture):
+    def scale_func(self, x, n_points, gamma, *args, **kwargs):
+        # TODO optimize more
+        # return np.linspace(0, 1, num=n_points + 1, endpoint=False)[1:]**(0.5 / gamma)
+        pts = np.linspace(0, 1, num=n_points + 1, endpoint=False)[1:]
+        return pts**gamma 
+        
+    def src_dist(self, x, scales, *args, **kwargs):
+        return np.exp(-x / scales) / scales
+
+    def weight_dist(self, x, gamma, *args, **kwargs):
+        coef = np.sin(np.pi * gamma) / np.pi
+        return coef * x**(gamma - 1) * (1 - x)**(-gamma)
+
+    scale_range = (0, 1)
+    
+
+gamma_ExponentialMixture = Gamma_ExponentialMixture()
 
 
 def generalized_gamma(x, r, alpha):
