@@ -1,8 +1,7 @@
-import os
+from multiprocessing import Pool
 import numpy as np
 from scipy import integrate, interpolate, stats, special
 
-from .data import assure_directory, _default_cache_dir
 import pkg_resources
 
 try:
@@ -12,9 +11,21 @@ except ImportError:
     HAS_LEVY = False
 
 
+# the below is only be used for multiprocessing
+def _worker_init(func):
+    global _func
+    _func = func
+  
+def _worker(x):
+    return _func(x)
+
+def _xmap(func, iterable, processes=None):
+    with Pool(processes, initializer=_worker_init, initargs=(func,)) as p:
+        return p.map(_worker, iterable)
+
+
 FILE_SYMMETRIC_LEVY = pkg_resources.resource_filename(__name__, "data/symmetric_levy.npz")
 FILE_POSITIVE_LEVY = pkg_resources.resource_filename(__name__, "data/positive_levy.npz")
-
 
 def _assert_has_levy(function):
     if not HAS_LEVY:
@@ -91,12 +102,13 @@ class PositiveLevyInterpolator(LevyInterpolator):
 positiveLevyInterpolator = PositiveLevyInterpolator()
 
 
-def build_levy():
+def _build_interp():
     """
-    Build a database for levy pdf
+    Build a database for some special distributions
     """
-    _build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
-    _build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    #_build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    #_build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    _build_generalized_mittagleffler(n_alpha=81, n_nu=40, x_min=1e-5, x_max=1e3, n_x=51)
 
 
 def _build_symmetric_levy(n_alpha, x_min, x_max, n_x, rtol):
@@ -190,6 +202,35 @@ def _build_positive_levy(n_alpha, x_min, x_max, n_x, rtol):
         data.append(merged) 
 
     np.savez(FILE_POSITIVE_LEVY, data=data, x=x, alpha=alphas, x_asymp=x_asymp)
+
+
+FILE_GENERALIZED_MITTAG_LEFFLER = pkg_resources.resource_filename(__name__, "data/generalized_mittagleffler.npz")
+
+def _build_generalized_mittagleffler(n_alpha, n_nu, x_min, x_max, n_x):
+    alpha = 1 - np.logspace(-2, 0, base=10, num=n_alpha)[:-1][::-1]
+    alpha = np.sort(np.concatenate([alpha, [1]]))
+    nu = np.sort(1 / np.logspace(0, np.log10(3), base=10, num=n_nu))
+    n_xhalf = (n_x - 1) // 2
+    n_xquad = (n_x - n_xhalf) // 2
+    x = np.concatenate([
+        np.logspace(np.log10(x_min), -1, num=n_xquad, base=10, endpoint=False),
+        np.logspace(-1, 1.3, num=n_xhalf, base=10, endpoint=False),
+        np.logspace(1.3, np.log10(x_max), num=n_xquad+1, base=10, endpoint=True),
+    ])
+    # actual computation
+    def build(alp):
+        func = np.zeros((len(nu), len(x)))
+        for j in range(len(nu)):
+            n = nu[j]
+            if alp == 1:
+                func[j] = x**(1/n - 1) * np.exp(-x) / special.gamma(1 / n)
+            else:
+                func[j] = generalizedMittagLeffler_ExponentialMixture.quad(
+                    x, gamma=alp, delta=n)
+        return func
+
+    func = np.stack(_xmap(build, alpha), axis=0)
+    np.savez(FILE_GENERALIZED_MITTAG_LEFFLER, data=func, x=x, gamma=alpha, delta=nu)
 
 
 class ScaleMixture:
@@ -380,17 +421,22 @@ def generalized_mittag_leffler(
     if options is None:
         options = {}
 
-    n_points = options.get('num_points', 31)
+    if method == 'interp':
+        return _generalized_mittag_leffler_interp(x, alpha, 1 / nu)
 
     if method == 'exponential_mixture':
+        n_points = options.get('num_points', 31)
         return generalizedMittagLeffler_ExponentialMixture(
             x, n_points, gamma=alpha, delta=1/nu
         )
+    if method == 'quad':
 
+        return generalizedMittagLeffler_ExponentialMixture.quad(
+            x, gamma=alpha, delta=1/nu
+        )
 
 def arccot(x):
     return np.pi / 2 - np.arctan(x)
-
 
 class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
     r"""
@@ -406,18 +452,6 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
     
     is used.
     """
-    def scale_func(self, x, n_points, delta, gamma):
-        # TODO optimize more
-        return np.logspace(
-            np.log10(np.minimum(x, 10) * 1e-2), 
-            np.log10(np.maximum(x, 0.1) * 1e2), base=10, num=n_points, axis=-1
-        )
-        log10_vmax = 3.5
-        return np.logspace(
-            np.log10(self.x_asymp_min(delta, gamma)) - 1.5, 
-            log10_vmax, base=10, num=n_points
-        )
-
     def src_dist(self, x, scales, delta, gamma, *args, **kwargs):
         return np.exp(-x / scales) / scales
 
@@ -431,19 +465,52 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
         value = np.sin(pi_g * Fg / delta) / (y_g**2 + 2 * y_g * np.cos(pi_g) + 1)**(0.5 / delta)
         return value * y / np.pi
 
+'''
+    def __init__(self):
+        npzfile = np.load(FILE_GMITTAGLEFFLER)
+        gamma = npzfile['alpha'][::-1]
+        delta = npzfile['delta'][::-1]
+        a = npzfile['a'][::-1, ::-1]
+        b = npzfile['b'][::-1, ::-1]
+        c = npzfile['c'][::-1, ::-1]
+        xmin = npzfile['xmin'][::-1, ::-1]
+        xmax = npzfile['xmax'][::-1, ::-1]
+        self._interp_a = interpolate.RegularGridInterpolator(
+            (delta, gamma), a, method='linear', bounds_error=False, fill_value=None
+        )
+        self._interp_b = interpolate.RegularGridInterpolator(
+            (delta, gamma), b, method='linear', bounds_error=False, fill_value=None
+        )
+        self._interp_c = interpolate.RegularGridInterpolator(
+            (delta, gamma), c, method='linear', bounds_error=False, fill_value=None
+        )
+        self._interp_xmin = interpolate.RegularGridInterpolator(
+            (delta, gamma), xmin, method='linear', bounds_error=False, fill_value=None
+        )
+        self._interp_xmax = interpolate.RegularGridInterpolator(
+            (delta, gamma), xmax, method='linear', bounds_error=False, fill_value=None
+        )
+
+    def scale_func(self, x, n_points, delta, gamma):
+        a = self._interp_a((delta, gamma))
+        b = self._interp_b((delta, gamma))
+        c = self._interp_c((delta, gamma))
+        p = np.linspace(-1, 1, n_points)
+        return np.exp(a + b * p + c * p**3)
+
     def x_asymp_min(self, delta, gamma, *args, **kwargs):
-        return 3e-3
+        return self._interp_xmin((delta, gamma))
 
     def asymp_min(self, x, delta, gamma, *args, **kwargs):
         gd = gamma / delta
         return x**(gd - 1) / special.gamma(gd)
 
-    def x_asymp_max(self, *args, **kwargs):
-        return 3e2
+    def x_asymp_max(self, delta, gamma, *args, **kwargs):
+        return self._interp_xmax((delta, gamma))
 
     def asymp_max(self, x, delta, gamma, *args, **kwargs):
         return x**(-1-gamma) / special.gamma(1-gamma) * gamma / delta
-
+'''
 generalizedMittagLeffler_ExponentialMixture = GeneralizedMittagLeffler_ExponentialMixture()
 
 
@@ -483,6 +550,26 @@ def generalized_gamma(x, r, alpha):
     generalized gamma distribution
     """
     return np.abs(alpha) / special.gamma(r) * x**(alpha * r - 1) * np.exp(-x**alpha)
+
+
+class GeneralizedMittagLefflerInterp(Interpolator):
+    def _load(self):
+        npzfile = np.load(self.filename)
+        data = np.log(npzfile['data'])
+        x = np.log(npzfile['x'])
+        gamma = npzfile['gamma']
+        delta = npzfile['delta']
+        self._interpolator = interpolate.RegularGridInterpolator(
+            (gamma, delta, x), data, method='linear', bounds_error=False, fill_value=None
+        )
+
+    def _call(self, x, alpha, delta):
+        x = np.log(np.abs(x))
+        alphax = np.stack(np.broadcast_arrays(alpha, delta, x), axis=-1)
+        return np.exp(self._interpolator(alphax))
+
+
+_generalized_mittag_leffler_interp = GeneralizedMittagLefflerInterp(FILE_GENERALIZED_MITTAG_LEFFLER)
 
 
 def _mittag_leffler_exponential_mixture(x, alpha, options):
@@ -546,3 +633,9 @@ def _generalized_mittag_leffler_gamma_mixture(x, delta, nu, options):
         positive_stable(y, alpha=delta, method=levy_method) * 
         generalized_gamma(x / (y * scale), nu, delta) / (y * scale) * 
         w, axis=-1)
+
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == 'build':
+        _build_interp()
