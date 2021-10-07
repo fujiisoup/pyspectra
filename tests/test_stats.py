@@ -41,35 +41,6 @@ def _test_positive_stable(alpha):
         assert np.allclose(expected[idx], actual[idx], atol=1e-5, rtol=0.01)
 
 
-def generalized_mittag(x, alpha, nu):
-    r"""
-    Mixture representation of generalized mittag_leffler distribution by 
-    generalized-gamma mixture 
-
-    On Mixture Representations for the Generalized Linnik Distribution and Their Applications in Limit Theorems
-    Korolev et al.
-    Theorem 4
-    """
-    x = np.array(x)[..., np.newaxis]
-    num_points = 301
-
-    delta = alpha
-    # TODO optimize scale
-    # [hint] 
-    # the mixture distribution has a sharp peak around 1 if alpha ~ 1,
-    # the best digitization method may vary depending on x
-    log_vmin = -3
-    log_vmax = 4
-    y = np.logspace(log_vmin, log_vmax, base=10, num=num_points)
-    w = np.gradient(y)
-    
-    scale = 1 - delta
-    return np.sum(
-        pyspectra.stats.positive_stable(y, alpha=delta, method='scipy') * 
-        pyspectra.stats.generalized_gamma(x / (y * scale), nu, delta) / (y * scale) * 
-        w, axis=-1)
-
-
 @pytest.mark.parametrize("alpha", [0.4, 0.9, 0.99])
 @pytest.mark.parametrize("nu", [1.4, 1.1])
 def test_generalized_mittag_leffler_laplace(alpha, nu):
@@ -103,6 +74,17 @@ def test_generalized_mittag_leffler_laplace(alpha, nu):
     assert np.allclose(actual, integ, rtol=1e-2)
     '''
 
+
+@pytest.mark.parametrize("alpha", [0.4, 0.9, 0.99])
+@pytest.mark.parametrize("nu", [1.4, 1.1])
+def _test_generalized_mittag_leffler_vdf(alpha, nu):
+    s = np.logspace(-2, 2, num=31)
+    x = np.logspace(-4.5, 3, num=31)
+    actual = pyspectra.stats.generalized_mittag_leffler_vdf(
+            x, alpha=alpha, nu=nu, method='interp')
+    integ = pyspectra.stats.generalizedMittagLefflerVDF_ExponentialMixture.quad(
+            x, gamma=alpha, delta=1/nu)
+    
 
 @pytest.mark.parametrize("alpha", [0.4, 0.9])
 def _test_generalized_mittag_leffler_compare_ggamma_mixture(alpha):

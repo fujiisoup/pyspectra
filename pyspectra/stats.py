@@ -44,15 +44,15 @@ class Interpolator:
         self.filename = filename
         self._interpolator = None
 
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
         if self._interpolator is None:
             self._load()
-        return self._call(*args)
+        return self._call(*args, **kwargs)
     
     def _load(self):
         raise NotImplementedError
     
-    def _call(self, *args):
+    def _call(self, *args, **kwargs):
         raise NotImplementedError
 
 
@@ -98,7 +98,6 @@ class PositiveLevyInterpolator(LevyInterpolator):
         x_asymp = self._interp_xasymp(x)
         return np.where(x < x_asymp, value, _positive_levy_asymptotic(x, alpha, n=3))
 
-
 positiveLevyInterpolator = PositiveLevyInterpolator()
 
 
@@ -106,10 +105,10 @@ def _build_interp():
     """
     Build a database for some special distributions
     """
-    #_build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
-    #_build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    _build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    _build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
     _build_generalized_mittagleffler(n_alpha=81, n_nu=40, x_min=1e-5, x_max=1e3, n_x=51)
-
+    
 
 def _build_symmetric_levy(n_alpha, x_min, x_max, n_x, rtol):
     """
@@ -205,6 +204,7 @@ def _build_positive_levy(n_alpha, x_min, x_max, n_x, rtol):
 
 
 FILE_GENERALIZED_MITTAG_LEFFLER = pkg_resources.resource_filename(__name__, "data/generalized_mittagleffler.npz")
+
 
 def _build_generalized_mittagleffler(n_alpha, n_nu, x_min, x_max, n_x):
     alpha = 1 - np.logspace(-2, 0, base=10, num=n_alpha)[:-1][::-1]
@@ -389,28 +389,8 @@ def positive_stable(x, alpha, method='interpolate', options=None):
         return levy.levy(x, alpha, beta=1, mu=0.0, sigma=1.0, cdf=False)
 
 
-def mittag_leffler(x, alpha, method='exponential_mixture', options=None):
-    r"""
-    i.e., the symmetric geometric syable distribution defined on x in [0, \infty]
-    https://en.wikipedia.org/wiki/Geometric_stable_distribution
-
-    Its laplace distribution is 
-    1 / (1 + s^\alpha)
-    """
-    if options is None:
-        option = {}
-    if method in ['exponential_mixture']:
-        return _mittag_leffler_exponential_mixture(x, alpha, options)
-    if method == 'gammma_mixture':
-        return _generalized_mittag_leffler_gamma_mixture(x, delta, 1, options)
-
-
-class MittagLeffler_ExponentialMixture(ScaleMixture):
-    pass
-
-
 def generalized_mittag_leffler(
-    x, alpha, nu, method='exponential_mixture', options=None
+    x, alpha, nu, method='interp', options=None
 ):
     r"""
     A generalization of mittag_leffler distribution.
@@ -422,7 +402,7 @@ def generalized_mittag_leffler(
         options = {}
 
     if method == 'interp':
-        return _generalized_mittag_leffler_interp(x, alpha, 1 / nu)
+        return _generalized_mittag_leffler_interp(x, gamma=alpha, delta=1 / nu)
 
     if method == 'exponential_mixture':
         n_points = options.get('num_points', 31)
@@ -433,6 +413,24 @@ def generalized_mittag_leffler(
 
         return generalizedMittagLeffler_ExponentialMixture.quad(
             x, gamma=alpha, delta=1/nu
+        )
+
+
+def generalized_mittag_leffler_vdf(
+    x, alpha, nu, power=0, method='interp', options=None
+):
+    r"""
+    Velocity distribution for the generalized mittag-leffler
+    """
+    if options is None:
+        options = {}
+
+    if method == 'interp':
+        return _generalized_mittag_leffler_interp(x, gamma=alpha, delta=1 / nu, power=power)
+
+    if method == 'quad':
+        return generalizedMittagLeffler_ExponentialMixture.quad(
+            x, gamma=alpha, delta=1/nu, power=power
         )
 
 def arccot(x):
@@ -519,8 +517,11 @@ class GeneralizedMittagLefflerVDF_ExponentialMixture(GeneralizedMittagLeffler_Ex
         """
         power: correction in the power
         """
-        xscale = np.sqrt(scales)
-        return special.gammaincc(1 / 2, (x / xscale)**2) / xscale / np.sqrt(2 * np.pi)
+        xscale = np.sqrt(2 * scales)
+        return (
+            special.gammaincc(1 / 2 + power, (x / xscale)**2) * special.gamma(1 / 2 + power)
+            / xscale / special.gamma(1 + power)
+        ) * scales**power
 
 generalizedMittagLefflerVDF_ExponentialMixture = GeneralizedMittagLefflerVDF_ExponentialMixture()
 
@@ -563,76 +564,13 @@ class GeneralizedMittagLefflerInterp(Interpolator):
             (gamma, delta, x), data, method='linear', bounds_error=False, fill_value=None
         )
 
-    def _call(self, x, alpha, delta):
+    def _call(self, x, gamma, delta):
         x = np.log(np.abs(x))
-        alphax = np.stack(np.broadcast_arrays(alpha, delta, x), axis=-1)
-        return np.exp(self._interpolator(alphax))
+        gammax = np.stack(np.broadcast_arrays(gamma, delta, x), axis=-1)
+        return np.exp(self._interpolator(gammax))
 
 
 _generalized_mittag_leffler_interp = GeneralizedMittagLefflerInterp(FILE_GENERALIZED_MITTAG_LEFFLER)
-
-
-def _mittag_leffler_exponential_mixture(x, alpha, options):
-    """
-    Mixture representation of Linnik distribution revisited
-    by Kozubowski
-    """
-    x = np.array(x)[..., np.newaxis]
-    # TODO     
-    # # default number of points
-    num_points = options.get('num_points', 31)
-
-    # TODO optimize scale
-    # [hint] 
-    # the mixture distribution has a sharp peak around 1 if alpha ~ 1,
-    # the best digitization method may vary depending on x
-    log_vmin = -5
-    log_vmax = 5
-    y = np.concatenate([
-        np.logspace(log_vmin, 0, base=10, num=num_points // 2, endpoint=False),
-        np.logspace(0, log_vmax, base=10, num=num_points // 2, endpoint=False)
-    ])
-    w = np.gradient(y)
-    
-    # TODO enable to use custom method
-    yalpha = y**alpha
-    mixture = yalpha / (yalpha**2 + 1 + 2 * yalpha * np.cos(np.pi * alpha))
-    
-    # gaussians
-    exponentials = np.exp(-x * y)
-    exponentials = np.sum(exponentials * mixture * w, axis=-1) * np.sin(np.pi * alpha) / np.pi
-    return exponentials
-
-
-def _generalized_mittag_leffler_gamma_mixture(x, delta, nu, options):
-    r"""
-    Mixture representation of generalized mittag_leffler distribution by 
-    generalized-gamma mixture 
-
-    On Mixture Representations for the Generalized Linnik Distribution and Their Applications in Limit Theorems
-    Korolev et al.
-    Theorem 4
-    """
-    x = np.array(x)[..., np.newaxis]
-    # TODO     
-    # # default number of points
-    num_points = options.get('num_points', 31)
-    levy_method = options.get('levy_method', 'scipy')
-
-    # TODO optimize scale
-    # [hint] 
-    # the mixture distribution has a sharp peak around 1 if alpha ~ 1,
-    # the best digitization method may vary depending on x
-    log_vmin = -3
-    log_vmax = 4
-    y = np.logspace(log_vmin, log_vmax, base=10, num=num_points)
-    w = np.gradient(y)
-    
-    scale = 1 - delta
-    return np.sum(
-        positive_stable(y, alpha=delta, method=levy_method) * 
-        generalized_gamma(x / (y * scale), nu, delta) / (y * scale) * 
-        w, axis=-1)
 
 
 if __name__ == '__main__':
