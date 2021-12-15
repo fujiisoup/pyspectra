@@ -38,6 +38,11 @@ def test_atom_lines():
     assert ds["wavelength"].attrs["unit"] == "cm^{-1}"
 
 
+def test_search_lines():
+    ds = data.search_atom_lines(wavelength_start=300, wavelength_stop=310)
+    print(ds)
+    raise ValueError
+
 def test_atom_lines_uncertainty():
     ds = data.atom_lines("Ne", force_download=True)
     assert ds["wavelength_err"].dtype == float
