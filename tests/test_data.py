@@ -39,9 +39,11 @@ def test_atom_lines():
 
 
 def test_search_lines():
+    # should work
     ds = data.search_atom_lines(wavelength_start=300, wavelength_stop=310)
-    print(ds)
-    raise ValueError
+    # should work
+    ds = data.search_atom_lines(elements='Fe', wavelength_start=300, wavelength_stop=310)
+    
 
 def test_atom_lines_uncertainty():
     ds = data.atom_lines("Ne", force_download=True)
