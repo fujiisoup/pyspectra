@@ -290,7 +290,7 @@ def _parse_levels(lines):
         "Uncertainty (eV)": "energy_err",
     }
     renames = {key: item for key, item in renames.items() if key in ds}
-    return ds.dropna("energy")
+    return ds.isel(energy=~ds["energy"].isnull())
 
 
 def _parse_lines(lines):
