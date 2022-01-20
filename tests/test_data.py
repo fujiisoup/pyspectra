@@ -20,6 +20,13 @@ def test_atom_levels():
     assert ds == ds2
 
 
+@pytest.mark.parametrize(
+    ["atom", "nele"], [("Mo", None)],
+)
+def test_atom_levels_noerror(atom, nele):
+    ds = data.atom_levels(atom, nele=nele, force_download=True)
+    assert ds.sizes['energy'] > 0
+
 def test_atom_lines():
     ds = data.atom_lines("Li", force_download=True)
     ds2 = data.atom_lines("Li", force_download=False)
