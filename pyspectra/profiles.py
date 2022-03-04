@@ -1,11 +1,9 @@
+import os
 import numpy as np
 from scipy.special import wofz, gamma, gammaincc
 from scipy import stats
 
-
-def normal(x):
-    return 1 / np.sqrt(2.0 * np.pi) * np.exp(-0.5 * x ** 2)
-
+from .stats import normal
 
 gauss = normal
 
@@ -100,6 +98,13 @@ def voigt_fast(x, A, x0, sigma, gamma, offset):
     raise NotImplementedError
 
 
+def student_t(x, df):
+    """
+    Student's t-distribution with degree of freedom of df
+    """
+    return stats.t.pdf(x, df=df)
+
+
 def GeneralizedVoigt1(x, A, x0, sigma, gamma, df, offset):
     """
     Generalized voigt function with scale.
@@ -165,3 +170,4 @@ def generalized_voigt1(
         raise NotImplementedError
 
     return pdf + pdf_lo + pdf_hi
+

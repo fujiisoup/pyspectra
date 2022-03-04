@@ -1,5 +1,5 @@
 import numpy as np
-from scipy import stats
+from scipy import stats, integrate
 import pytest
 from pyspectra import profiles
 

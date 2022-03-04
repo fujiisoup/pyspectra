@@ -29,6 +29,7 @@ setup(
     ext_modules=[],
     packages=["pyspectra",],
     package_dir={"pyspectra": "pyspectra"},
+    package_data={'pyspectra': ['pyspectra/data/*.npz']},
     py_modules=["pyspectra.__init__"],
     test_suite="tests",
     install_requires="""
