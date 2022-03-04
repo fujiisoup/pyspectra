@@ -86,3 +86,57 @@ def eV_to_K(eV):
 def K_to_eV(K):
     """ Convert kelvin to eV """
     return K / 11600.0
+
+
+def int_to_roman(number):
+    """ Convert integer to roman symbol """
+    if hasattr(number, 'shape'):
+        shape = number.shape
+        number = number.flatten()
+        return np.array(
+            [int_to_roman(int(i)) for i in number]
+        ).reshape(shape)
+
+    symbols = {
+        "C": 100, "XC": 90, 
+        "L": 50, "XL": 40,
+        "X": 10, "IX": 9, 
+        "V": 5, "IV": 4, 
+        "I": 1
+    }
+    
+    numeral = ""
+    for sym, num in symbols.items():
+        div = number // num
+        number %= num
+        while div:
+            numeral += sym
+            div -= 1
+    return numeral
+
+
+def roman_to_int(roman):
+    """ Convert roman symbol to integer """
+    if hasattr(roman, 'shape'):
+        shape = roman.shape
+        number = roman.flatten()
+        return np.array(
+            [roman_to_int(r.item()) for r in roman]
+        ).reshape(shape)
+
+    symbols = {
+        "C": 100, "XC": 90, 
+        "L": 50, "XL": 40,
+        "X": 10, "IX": 9, 
+        "V": 5, "IV": 4, 
+        "I": 1
+    }
+    
+    number = 0
+    while len(roman) > 0:
+        for sym, num in symbols.items():
+            if sym == roman[:len(sym)]:
+                number += num
+                roman = roman[len(sym):]
+                break
+    return number

@@ -20,6 +20,13 @@ def test_atom_levels():
     assert ds == ds2
 
 
+@pytest.mark.parametrize(
+    ["atom", "nele"], [("Mo", None)],
+)
+def test_atom_levels_noerror(atom, nele):
+    ds = data.atom_levels(atom, nele=nele, force_download=True)
+    assert ds.sizes['energy'] > 0
+
 def test_atom_lines():
     ds = data.atom_lines("Li", force_download=True)
     ds2 = data.atom_lines("Li", force_download=False)
@@ -37,6 +44,13 @@ def test_atom_lines():
     ds = data.atom_lines("Li", unit="cm")
     assert ds["wavelength"].attrs["unit"] == "cm^{-1}"
 
+
+def test_search_lines():
+    # should work
+    ds = data.search_atom_lines(wavelength_start=300, wavelength_stop=310)
+    # should work
+    ds = data.search_atom_lines(elements='Fe', wavelength_start=300, wavelength_stop=310)
+    
 
 def test_atom_lines_uncertainty():
     ds = data.atom_lines("Ne", force_download=True)

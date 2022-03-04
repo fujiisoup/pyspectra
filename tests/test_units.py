@@ -17,3 +17,25 @@ def test(seed):
 
 def test_misc():
     assert np.allclose(units.a0, 5.291772109e-11)
+
+
+def test_unit():
+    check_list = {
+        3: 'III', 4: 'IV', 5: 'V', 
+        11: 'XI', 31: 'XXXI', 33: 'XXXIII',
+    }
+    for key, expected in check_list.items():
+        actual = units.int_to_roman(key)
+        assert actual == expected 
+        actual = units.roman_to_int(actual)
+        assert actual == key 
+
+    # test with array
+    keys = np.array(list(check_list.keys()))
+    expected = np.array(list(check_list.values()))
+    actual = units.int_to_roman(keys)
+    assert np.all(actual == expected)
+
+    # inverse conversion
+    actual = units.roman_to_int(actual)
+    assert np.all(actual == keys)

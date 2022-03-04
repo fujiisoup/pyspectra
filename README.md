@@ -24,6 +24,7 @@ import pyspectra
 
 pyspectra.data.atom_levels('Ne')
 pyspectra.data.atom_lines('Ne')
+pyspectra.data.search_atom_lines(wavelength_start=301, wavelength_stop=302)
 ```
 
 For the detailed description of each data, see the source webpage.

@@ -7,6 +7,7 @@ import urllib.request
 import numpy as np
 import xarray as xr
 from .atoms import ATOMIC_SYMBOLS
+from . import units
 
 
 class DataNotFoundError(ValueError):
@@ -37,19 +38,21 @@ def get_level_url(atom, nele):
     return url
 
 
-def get_line_url(atom, nele):
+def get_line_url(atom, nele, low_w='', upp_w=''):
     # https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=Fe+Be-like&limits_type=0&low_w=&upp_w=&unit=1&de=0&format=3&\
     # line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=15&show_obs_wl=1&show_calc_wl=1&unc_out=1&order_out=0&\
     # max_low_enrg=&show_av=3&max_upp_enrg=&tsb_value=0&min_str=&A_out=0&f_out=on&intens_out=on&max_str=&allowed_out=1&
     # forbid_out=1&min_accur=&min_intens=&conf_out=on&term_out=on&enrg_out=on&J_out=on&submit=Retrieve+Data
-
-    charge = ATOMIC_SYMBOLS.index(atom) - nele
-
     queries = OrderedDict()
-    queries["spectra"] = atom + str(charge)
+
+    if nele is not None:
+        charge = ATOMIC_SYMBOLS.index(atom) - nele
+        queries["spectra"] = atom + str(charge)
+    else:
+        queries["spectra"] = atom
     queries["limits_type"] = "0"  # no limit
-    queries["low_w"] = ""
-    queries["upp_w"] = ""
+    queries["low_w"] = low_w
+    queries["upp_w"] = upp_w
     queries["unit"] = "1"  # eV
     queries["de"] = "0"  # ?
     queries["format"] = "3"  # tab-deliminated
@@ -109,11 +112,11 @@ def get_levels(atom, nele):
     return data
 
 
-def get_lines(atom, nele):
+def get_lines(atom, nele, low_w='', upp_w=''):
     """
     Scrape NIST web page.
     """
-    url = get_line_url(atom, nele)
+    url = get_line_url(atom, nele, low_w, upp_w)
     print("downloading from {}".format(url))
     contents = urllib.request.urlopen(url).read().decode("utf-8")
     lines = contents.split("\n")
@@ -143,6 +146,7 @@ def get_lines(atom, nele):
 
     renames["intens"] = "intensity"
     renames["intens_uncertain"] = "intensity_uncertain"
+    renames["sp_num"] = 'spectral_number'
 
     drops = ["unc_ritz_wl_uncertain", "_uncertain"]
 
@@ -150,9 +154,21 @@ def get_lines(atom, nele):
     drops = [key for key in drops if key in data]
     data = data.rename(renames).drop(drops)
 
+    # use spectroscopic notation
+    if "spectral_number" in data.keys():
+        elements_sp = [
+            data['element'][i].item() + ' ' + 
+            units.int_to_roman(int(data['spectral_number'][i].item()))
+            for i in range(len(data['spectral_number']))
+        ]
+        data['element_sp'] = 'itrans', elements_sp
+        
     # rename if existing
     renames = {"unc_obs_wl": "wavelength_err"}
-    drops = ["unc_obs_wl_uncertain"]
+    drops = [
+        "unc_obs_wl_uncertain", "element_uncertain", 
+        "sp_num", "sp_num_uncertain"
+    ]
     for key, item in renames.items():
         if key in data:
             data = data.rename({key: item})
@@ -274,7 +290,7 @@ def _parse_levels(lines):
         "Uncertainty (eV)": "energy_err",
     }
     renames = {key: item for key, item in renames.items() if key in ds}
-    return ds.dropna("energy")
+    return ds.isel(energy=~ds["energy"].isnull())
 
 
 def _parse_lines(lines):

@@ -61,6 +61,26 @@ def atom_lines(
     return ds
 
 
+def search_atom_lines(
+    elements='', wavelength_start=None, wavelength_stop=None,
+    source="nist"
+):
+    """
+    Search atomic emission lines from NIST.
+    
+    """
+
+    if source not in ["nist"]:
+        raise NotImplementedError("Only NIST is available yet.")
+
+    from ._data_atom_nist import get_lines
+
+    ds = get_lines(
+        elements, nele=None, 
+        low_w=str(wavelength_start), upp_w=str(wavelength_stop)
+    )
+    return ds
+
 def _atom(
     kind,
     element,
