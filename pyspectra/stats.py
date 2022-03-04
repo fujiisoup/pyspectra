@@ -450,6 +450,9 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
     
     is used.
     """
+    def __call__(self, x, *args, **kwargs):
+        raise NotImplementedError("The optimum is not set yet. Wait for the implementation")
+
     def src_dist(self, x, scales, delta, gamma, *args, **kwargs):
         return np.exp(-x / scales) / scales
 
@@ -513,6 +516,9 @@ generalizedMittagLeffler_ExponentialMixture = GeneralizedMittagLeffler_Exponenti
 
 
 class GeneralizedMittagLefflerVDF_ExponentialMixture(GeneralizedMittagLeffler_ExponentialMixture):
+    def __call__(self, x, *args, **kwargs):
+        raise NotImplementedError("The optimum is not set yet. Wait for the implementation")
+
     def src_dist(self, x, scales, delta, gamma, power=0.0, **kwargs):
         """
         power: correction in the power
