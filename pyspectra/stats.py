@@ -105,9 +105,9 @@ def _build_interp():
     """
     Build a database for some special distributions
     """
-    _build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
-    _build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
-    _build_generalized_mittagleffler(n_alpha=81, n_nu=40, x_min=1e-5, x_max=1e3, n_x=51)
+    #_build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    #_build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
+    _build_generalized_mittagleffler(n_alpha=81, n_nu=140, x_min=1e-5, x_max=1e3, n_x=51)
     
 
 def _build_symmetric_levy(n_alpha, x_min, x_max, n_x, rtol):
@@ -207,9 +207,9 @@ FILE_GENERALIZED_MITTAG_LEFFLER = pkg_resources.resource_filename(__name__, "dat
 
 
 def _build_generalized_mittagleffler(n_alpha, n_nu, x_min, x_max, n_x):
-    alpha = 1 - np.logspace(-2, 0, base=10, num=n_alpha)[:-1][::-1]
+    alpha = 1 - np.logspace(-3, 0, base=10, num=n_alpha)[:-1][::-1]
     alpha = np.sort(np.concatenate([alpha, [1]]))
-    nu = np.sort(1 / np.logspace(0, np.log10(3), base=10, num=n_nu))
+    nu = np.sort(1 / np.logspace(0, np.log10(30), base=10, num=n_nu))
     n_xhalf = (n_x - 1) // 2
     n_xquad = (n_x - n_xhalf) // 2
     x = np.concatenate([
@@ -285,13 +285,33 @@ class ScaleMixture:
         x = np.asarray(x)
         shape = x.shape
         x = x.ravel()
-        result = []
-        for x1 in x:
-            result.append(integrate.quad(
+        values = np.zeros(x.shape)
+        errors = np.zeros(x.shape)
+        for i, x1 in enumerate(x):
+            res = integrate.quad(
                 lambda s: self.src_dist(x1, s, *args, **kwargs) * self.weight_dist(s, *args, **kwargs),
                 self.scale_range[0], self.scale_range[1],
-            )[0])
-        return np.array(result).reshape(shape)
+            )
+            values[i] = res[0]
+            errors[i] = np.abs(res[1])
+
+        if getattr(self, 'x_asymp_min', None) is not None:
+            values_min = self.asymp_min(x, *args, **kwargs)
+            values = np.where(
+                (x < self.x_asymp_min(*args, **kwargs)) * 
+                (values_min < errors) * np.isfinite(values_min), 
+                values_min,
+                values
+            )
+        if getattr(self, 'x_asymp_max', None) is not None:
+            values_max = self.asymp_max(x, *args, **kwargs)
+            values = np.where(
+                (x > self.x_asymp_max(*args, **kwargs)) * 
+                (values_max < errors) * np.isfinite(values_max), 
+                values_max, 
+                values
+            )
+        return values.reshape(shape)
 
 
 def symmetric_stable(x, alpha, method='interpolate', options=None):
@@ -465,6 +485,33 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
 
         value = np.sin(pi_g * Fg / delta) / (y_g**2 + 2 * y_g * np.cos(pi_g) + 1)**(0.5 / delta)
         return value * y / np.pi
+    
+    def scale_func(self, x, n_points, delta, gamma):
+        a = self._interp_a((delta, gamma))
+        b = self._interp_b((delta, gamma))
+        c = self._interp_c((delta, gamma))
+        p = np.linspace(-1, 1, n_points)
+        return np.exp(a + b * p + c * p**3)
+
+    def x_asymp_min(self, delta, gamma, *args, **kwargs):
+        return 0.2 / delta
+
+    def asymp_min(self, x, delta, gamma, *args, **kwargs):
+        # Taylor expansion
+        order = 80
+        res = np.zeros(x.shape)
+        coef = 1
+        for k in range(order):
+            an = gamma / delta + k * gamma
+            res += coef * x**(an - 1) / special.gamma(an)
+            coef *= -(1 / delta + k) / (k + 1)
+        return res
+        
+    def x_asymp_max(self, delta, gamma, *args, **kwargs):
+        return 3 / delta
+
+    def asymp_max(self, x, delta, gamma, *args, **kwargs):
+        return x**(-1-gamma) / special.gamma(1-gamma) * gamma / delta
 
 '''
     def __init__(self):
@@ -491,27 +538,9 @@ class GeneralizedMittagLeffler_ExponentialMixture(ScaleMixture):
         self._interp_xmax = interpolate.RegularGridInterpolator(
             (delta, gamma), xmax, method='linear', bounds_error=False, fill_value=None
         )
-
-    def scale_func(self, x, n_points, delta, gamma):
-        a = self._interp_a((delta, gamma))
-        b = self._interp_b((delta, gamma))
-        c = self._interp_c((delta, gamma))
-        p = np.linspace(-1, 1, n_points)
-        return np.exp(a + b * p + c * p**3)
-
-    def x_asymp_min(self, delta, gamma, *args, **kwargs):
-        return self._interp_xmin((delta, gamma))
-
-    def asymp_min(self, x, delta, gamma, *args, **kwargs):
-        gd = gamma / delta
-        return x**(gd - 1) / special.gamma(gd)
-
-    def x_asymp_max(self, delta, gamma, *args, **kwargs):
-        return self._interp_xmax((delta, gamma))
-
-    def asymp_max(self, x, delta, gamma, *args, **kwargs):
-        return x**(-1-gamma) / special.gamma(1-gamma) * gamma / delta
 '''
+
+
 generalizedMittagLeffler_ExponentialMixture = GeneralizedMittagLeffler_ExponentialMixture()
 
 
