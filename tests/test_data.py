@@ -19,6 +19,13 @@ def test_atom_levels():
     assert ds["ionization_energy_err"].attrs["unit"] == "eV"
     assert ds == ds2
 
+@pytest.mark.parametrize(
+    ["atom", "nele", "n_levels"], [("Si", None, 40)],
+)
+def test_atom_levels_noerror(atom, nele, n_levels):
+    ds = data.atom_levels(atom, nele=nele, force_download=True)
+    assert ds.sizes['energy'] > n_levels
+
 
 def test_atom_lines():
     ds = data.atom_lines("Li", force_download=True)
