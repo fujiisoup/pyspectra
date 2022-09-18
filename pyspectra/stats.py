@@ -107,7 +107,8 @@ def _build_interp():
     """
     #_build_symmetric_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
     #_build_positive_levy(n_alpha=301, x_min=1e-8, x_max=1e8, n_x=1001, rtol=1e-4)
-    _build_generalized_mittagleffler(n_alpha=81, n_nu=140, x_min=1e-5, x_max=1e3, n_x=51)
+    #_build_generalized_mittagleffler(n_alpha=81, n_nu=140, x_min=1e-5, x_max=1e3, n_x=51)
+    _build_generalized_mittagleffler_vdf(n_alpha=81, n_nu=140, x_min=1e-5, x_max=1e3, n_x=51)
     
 
 def _build_symmetric_levy(n_alpha, x_min, x_max, n_x, rtol):
@@ -204,6 +205,7 @@ def _build_positive_levy(n_alpha, x_min, x_max, n_x, rtol):
 
 
 FILE_GENERALIZED_MITTAG_LEFFLER = pkg_resources.resource_filename(__name__, "data/generalized_mittagleffler.npz")
+FILE_GENERALIZED_MITTAG_LEFFLER_VDF = pkg_resources.resource_filename(__name__, "data/generalized_mittagleffler_vdf.npz")
 
 
 def _build_generalized_mittagleffler(n_alpha, n_nu, x_min, x_max, n_x):
@@ -231,6 +233,30 @@ def _build_generalized_mittagleffler(n_alpha, n_nu, x_min, x_max, n_x):
 
     func = np.stack(_xmap(build, alpha), axis=0)
     np.savez(FILE_GENERALIZED_MITTAG_LEFFLER, data=func, x=x, gamma=alpha, delta=nu)
+
+
+def _build_generalized_mittagleffler_vdf(n_alpha, n_nu, x_min, x_max, n_x):
+    alpha = 1 - np.logspace(-3, 0, base=10, num=n_alpha)[:-1][::-1]
+    alpha = np.sort(np.concatenate([alpha, [1]]))
+    powers = np.linspace(0, 1/2, 7)
+    n_xhalf = (n_x - 1) // 2
+    n_xquad = (n_x - n_xhalf) // 2
+    x = np.concatenate([
+        np.logspace(np.log10(x_min), -1, num=n_xquad, base=10, endpoint=False),
+        np.logspace(-1, 1.3, num=n_xhalf, base=10, endpoint=False),
+        np.logspace(1.3, np.log10(x_max), num=n_xquad+1, base=10, endpoint=True),
+    ])
+    # actual computation
+    def build(alp):
+        func = np.zeros((len(powers), len(x)))
+        for j in range(len(powers)):
+            power = powers[j]
+            func[j] = generalizedMittagLefflerVDF_ExponentialMixture.quad(
+                x, gamma=alp, delta=3/2/alp, power=power)
+        return func
+
+    func = np.stack(_xmap(build, alpha), axis=0)
+    np.savez(FILE_GENERALIZED_MITTAG_LEFFLER_VDF, data=func, x=x, gamma=alpha, power=powers)
 
 
 class ScaleMixture:
