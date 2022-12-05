@@ -35,7 +35,7 @@ def level(molecule, state, v, J):
         )
         * J
         * (J + 1)
-        - (constants["De"].item() + constants["beta_e"].item() * (v + 0.5))
+        - (constants["De"].item() - constants["beta_e"].item() * (v + 0.5))
         * J ** 2
         * (J + 1) ** 2
     )
