@@ -15,6 +15,8 @@ class DataNotFoundError(ValueError):
 
 
 def get_level_url(atom, nele):
+    # https://physics.nist.gov/cgi-bin/ASD/energy1.pl?spectrum=Mo0&units=1&format=3&output=0&page_size=15&multiplet_ordered=on&conf_out=on&term_out=on&level_out=on&unc_out=1&j_out=on&lande_out=on&perc_out=on&biblio=on
+    # https://physics.nist.gov/cgi-bin/ASD/energy1.pl?spectrum=Mo0&units=1&format=3&output=0&page_size=15&multiplet_ordered=on&conf_out=on&term_out=on&level_out=on&unc_out=on&j_out=on&lande_out=on&perc_out=on&biblio=on
     charge = ATOMIC_SYMBOLS.index(atom) - nele
 
     queries = OrderedDict()
@@ -23,14 +25,14 @@ def get_level_url(atom, nele):
     queries["format"] = "3"  # tab-deliminated
     queries["output"] = "0"  # entire
     queries["page_size"] = "15"
-    queries["multiplet_ordered"] = "checked"
-    queries["conf_out"] = "checked"
-    queries["term_out"] = "checked"
-    queries["level_out"] = "checked"
-    queries["unc_out"] = "checked"
-    queries["j_out"] = "checked"
-    queries["lande_out"] = "checked"
-    queries["perc_out"] = "checked"
+    queries["multiplet_ordered"] = "0"
+    queries["conf_out"] = "on"
+    queries["term_out"] = "on"
+    queries["level_out"] = "on"
+    queries["unc_out"] = "on"
+    queries["j_out"] = "on"
+    queries["lande_out"] = "on"
+    queries["perc_out"] = "on"
     queries["biblio"] = "on"
 
     url = "https://physics.nist.gov/cgi-bin/ASD/energy1.pl?"
@@ -43,6 +45,7 @@ def get_line_url(atom, nele, low_w='', upp_w=''):
     # line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=15&show_obs_wl=1&show_calc_wl=1&unc_out=1&order_out=0&\
     # max_low_enrg=&show_av=3&max_upp_enrg=&tsb_value=0&min_str=&A_out=0&f_out=on&intens_out=on&max_str=&allowed_out=1&
     # forbid_out=1&min_accur=&min_intens=&conf_out=on&term_out=on&enrg_out=on&J_out=on&submit=Retrieve+Data
+
     queries = OrderedDict()
 
     if nele is not None:
@@ -218,6 +221,7 @@ def _parse_levels(lines):
 
     ionization_limit = None
     lines = [[it.strip('"').strip() for it in line.split("\t")] for line in lines]
+    print(lines)
 
     for i, items in enumerate(lines):
         if len(items) < 4:
@@ -271,6 +275,7 @@ def _parse_levels(lines):
                     data[key].append(item)
 
     # convert to xarray
+    print(data)
     energy = data.pop("Level (eV)")
 
     ds = xr.Dataset(
