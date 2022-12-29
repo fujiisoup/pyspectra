@@ -221,7 +221,6 @@ def _parse_levels(lines):
 
     ionization_limit = None
     lines = [[it.strip('"').strip() for it in line.split("\t")] for line in lines]
-    print(lines)
 
     for i, items in enumerate(lines):
         if len(items) < 4:
