@@ -274,7 +274,6 @@ def _parse_levels(lines):
                     data[key].append(item)
 
     # convert to xarray
-    print(data)
     energy = data.pop("Level (eV)")
 
     ds = xr.Dataset(
