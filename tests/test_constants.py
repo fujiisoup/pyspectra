@@ -3,7 +3,11 @@ from pyspectra import constants
 
 
 @pytest.mark.parametrize(
-    "symbol", ['H', 'Li', 'Be'],
+    ("symbol", "mass"), 
+    [
+        ('H', 1.0079), ('Li', 6.941), ('W',  183.84),
+    ],
 )
-def test_mass(symbol):
-    constants.mass(symbol)
+def test_mass(symbol, mass):
+    actual = constants.mass(symbol)
+    assert actual == mass * constants.mu

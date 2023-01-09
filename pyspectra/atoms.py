@@ -1,3 +1,5 @@
+import numpy as np
+
 ATOMIC_SYMBOLS = [
     "__dummy__",  # no Z=0
     # period 1
@@ -109,6 +111,7 @@ ATOMIC_SYMBOLS = [
 
 
 ATOMIC_MASS = [
+    np.nan,
     1.0079,  # 	Hydrogen	H	1
     4.0026,  # 	Helium	He	2
     6.941,  # 	Lithium	Li	3

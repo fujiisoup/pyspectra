@@ -304,6 +304,7 @@ def _parse_lines(lines):
     for key in keys:
         data[key.strip()] = []
         data[key.strip() + "_uncertain"] = []
+    data["obs_wl_digits"] = []
     if "conf_i" in keys:
         data["parity_i"] = []
     if "conf_k" in keys:
@@ -333,7 +334,6 @@ def _parse_lines(lines):
             elif key == "J_k":
                 data["J_k"].append(_two_j(item))
             elif key in [
-                "obs_wl_vac(nm)",
                 "ritz_wl_vac(nm)",
                 "unc_ritz_wl",
                 "intens",
@@ -345,6 +345,10 @@ def _parse_lines(lines):
                 "S(a.u.)",
             ]:
                 data[key].append(_energy(item))
+            elif key == "obs_wl_vac(nm)":
+                wl, digit = _energy(item, return_digit=True)
+                data[key].append(wl)
+                data['obs_wl_digits'].append(digit)
             elif key == "term_i":
                 parity, term = parity_term(item)
                 data["parity_i"].append(parity)
