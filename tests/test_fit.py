@@ -55,6 +55,48 @@ def test_voigt(n, sn, x0, sigma, gamma, seed):
     assert ((popt - 5 * perr < expected) * (expected < popt + 5 * perr)).all()
 
 
+@pytest.mark.parametrize(
+    ("A0", "x0", "w0", "y0"),
+    [
+        ((3, 1), (3, 1), (1, 1), (3, )),
+        ((3, 2), (3, 2), (1, 1), (3, )),
+    ]
+)
+@pytest.mark.parametrize(
+    'x', [(256, ), (3, 256)]
+)
+def test_multiframe_fit(A0, x0, w0, y0, x):
+    rng = np.random.RandomState(0)
+    A0 = rng.exponential(size=A0)
+    x0 = 0.1 + rng.uniform(size=x0) * 0.8
+    w0 = rng.exponential(scale=0.1, size=w0)
+    y0 = rng.exponential(scale=0.1, size=y0)
+    
+    if len(x) == 1:
+        x = np.linspace(0, 1, num=x[-1])
+    else:
+        x = rng.randn(*x[:-1])[:, np.newaxis] * 0.05 + np.linspace(0, 1, num=x[-1])
+
+    y = y0[:, np.newaxis] + np.sum(profiles.Gauss(
+            x[..., np.newaxis],   # shape (n, m, 1) or (m, 1)
+            A0[:, np.newaxis], x0[:, np.newaxis], w0[:, np.newaxis], 0  # shape (n, 1, k) or (1, 1, k)
+        ), axis=-1)  # -> (n, m)
+    y += rng.randn(*y.shape) * 0.01
+    print(x.shape, y.shape)
+
+    A0_noise = A0 + rng.randn(*A0.shape) * 0.01
+    x0_noise = x0 + rng.randn(*x0.shape) * 0.05
+    w0_noise = w0 + rng.randn(*w0.shape) * 0.01
+    y0_noise = y0 + rng.randn(*y0.shape) * 0.05
+    
+    result = fit.multiframe_fit(x, y, A0_noise, x0_noise, w0_noise, y0_noise)
+    print(x0)
+    assert np.allclose(result['A0'], A0, atol=0.1)
+    assert np.allclose(result['x0'], x0, atol=0.01)
+    assert np.allclose(result['w0'], w0, atol=0.01)
+    assert np.allclose(result['y0'], y0, atol=0.01)
+
+
 @pytest.mark.parametrize("n", [10, 100])
 def test_make_template_matrix(n):
     # with size 1 template, it becomes an identity

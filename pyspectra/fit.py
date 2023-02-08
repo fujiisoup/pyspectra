@@ -6,7 +6,9 @@ from scipy import optimize, sparse
 
 try:
     from sklearn import linear_model
+    HAS_SKLEARN = True
 except ImportError:
+    HAS_SKLEARN = False
     pass
 
 from .profiles import Gauss, Lorentz, Voigt
@@ -70,6 +72,95 @@ def singlepeak_fit(x, y, p0=None, profile="gauss"):
     return popt, np.sqrt(np.diagonal(pcov))
 
 
+def multiframe_fit(x, y, A0, x0, w0, y0):
+    '''
+    Run multiframe fit for x and y.
+    
+    Parameters
+    ----------
+    x: 1d or 2d matrix for the x-axis.
+    y: 2d matrix of the intensity, shape (n, m)
+    A0, x0, w0:
+        Initial guess of the parameters to be evaluated:
+        They are intensity, centroids, widths. 
+        They must be all 2d, but their shape determines the parameter 
+        sharing during the fit.
+         
+        (n, k): n-frame for k-lines.
+        (1, k): The same values for all the frames, but different values for k-lines.
+        (1, 1): The same values for all the frames and lines.
+    y0: 
+        Initial guess of the background. The shape should be (n,)
+    '''
+    n, l = y.shape
+    shape_x = x.shape
+    k = 1
+    for key, p in [('A0', A0), ('x0', x0), ('w0', w0)]:
+        ndim = getattr(p, 'ndim', 0)
+        if ndim != 2:
+            raise ValueError(
+                '{} should be 2-dimensional, not {}-dimensional'.format(key, ndim)
+            )
+        if p.shape[0] not in [1, n]:
+            raise ValueError(
+                'Initial guess must have the shape of ({}, k). {}.shape = {}'.format(
+                    n, key, p.shape)
+            )
+        if p.shape[1] not in (k, 1):
+            if k == 1:
+                k = p.shape[1]
+            else:
+                raise ValueError('Wrong shape of {}. This should be ({}, {}) or ({}, 1)'.format(
+                    key,  n, k, n
+                ))
+    
+    assert y0.ndim == 1
+    shape_A0 = A0.shape
+    size_A0 = A0.size
+    shape_x0 = x0.shape
+    size_x0 = x0.size
+    shape_w0 = w0.shape
+    size_w0 = w0.size
+    shape_y0 = y0.shape
+    size_y0 = y0.size
+
+    p0 = np.concatenate([A0.ravel(), x0.ravel(), w0.ravel(), y0.ravel()])
+
+    def to_param(p):
+        A0, p = p[:size_A0], p[size_A0:]
+        x0, p = p[:size_x0], p[size_x0:]
+        w0, p = p[:size_w0], p[size_w0:]
+        y0 = p[:size_y0]
+        return A0.reshape(*shape_A0), x0.reshape(*shape_x0), w0.reshape(*shape_w0), y0.reshape(*shape_y0)
+
+    def compose_profile(x, p):
+        # overall profile
+        A0, x0, w0, y0 = to_param(p)
+        return y0[:, np.newaxis] + np.sum(Gauss(
+            x[..., np.newaxis],   # shape (n, m, 1) or (m, 1)
+            A0[:, np.newaxis], x0[:, np.newaxis], w0[:, np.newaxis], 0  # shape (n, 1, k) or (1, 1, k)
+        ), axis=-1)  # -> (n, m)
+
+    def func(x, *p):
+        fit = compose_profile(x, np.array(p))
+        return fit.ravel()
+
+    popt, pcov = optimize.curve_fit(func, x, y.ravel(), p0)
+    perr = np.sqrt(np.diagonal(pcov))
+    A0, x0, w0, y0 = to_param(popt)
+    A0_err, x0_err, w0_err, y0_err = to_param(perr)
+    fit = compose_profile(x, popt)
+
+    result = {
+        'A0': A0, 'A0_err': A0_err,
+        'x0': x0, 'x0_err': x0_err,
+        'w0': w0, 'w0_err': w0_err,
+        'y0': y0, 'y0_err': y0_err,
+        'fit': fit
+    }
+    return result
+
+
 def _make_template_matrix(template, size):
     """
     Make matrix by sliding a temlate
@@ -131,6 +222,9 @@ def multipeak_nnls(
     delta_sigma: float. How far wings should be considered. Default 5
     intercept: one of {'fit', 'min', 'fit_slope'} or float
     """
+    if not HAS_SKLEARN:
+        raise ImportError('scikit-learn is necessary for "multipeak_fit"')
+
     x = np.asanyarray(x)
     y = np.asanyarray(y)
 
@@ -209,7 +303,7 @@ def _multipeak_nnls1(
     if intercept == "fit":
         model = linear_model.Lasso(
             alpha=alpha,
-            fit_intercept=intercept,
+            fit_intercept=True,
             positive=True,
             max_iter=max_iter,
             tol=tol,
