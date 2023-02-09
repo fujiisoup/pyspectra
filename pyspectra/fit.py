@@ -72,7 +72,7 @@ def singlepeak_fit(x, y, p0=None, profile="gauss"):
     return popt, np.sqrt(np.diagonal(pcov))
 
 
-def multiframe_fit(x, y, A0, x0, w0, y0):
+def multiframe_fit(x, y, A0, x0, w0, y0, fix=''):
     '''
     Run multiframe fit for x and y.
     
@@ -91,7 +91,19 @@ def multiframe_fit(x, y, A0, x0, w0, y0):
         (1, 1): The same values for all the frames and lines.
     y0: 
         Initial guess of the background. The shape should be (n,)
+    fix:
+        Fixed parameters. A comma-separated keywords.
+        e.g., 'A0,x0'
     '''
+    fixed = []
+    for f in fix.split(','):
+        if len(f) == 0:
+            continue
+        f = f.strip().lower()
+        if f not in ['A0', 'x0', 'w0', 'y0']:
+            raise ValueError('Fixing {} is invalid.'.format(f))
+        fixed.append(f)
+
     n, l = y.shape
     shape_x = x.shape
     k = 1
@@ -124,14 +136,40 @@ def multiframe_fit(x, y, A0, x0, w0, y0):
     shape_y0 = y0.shape
     size_y0 = y0.size
 
-    p0 = np.concatenate([A0.ravel(), x0.ravel(), w0.ravel(), y0.ravel()])
+    p0 = []
+    if 'A0' not in fixed:
+        p0.append(A0.ravel())
+    if 'x0' not in fixed:
+        p0.append(x0.ravel())
+    if 'w0' not in fixed:
+        p0.append(w0.ravel())
+    if 'y0' not in fixed:
+        p0.append(y0.ravel())
+
+    p0 = np.concatenate(p0)
 
     def to_param(p):
-        A0, p = p[:size_A0], p[size_A0:]
-        x0, p = p[:size_x0], p[size_x0:]
-        w0, p = p[:size_w0], p[size_w0:]
-        y0 = p[:size_y0]
-        return A0.reshape(*shape_A0), x0.reshape(*shape_x0), w0.reshape(*shape_w0), y0.reshape(*shape_y0)
+        ''' Divide and reshaping a 1d-array to parameters each with 2d. '''
+        if 'A0' in fixed:
+            A = A0
+        else:
+            A, p = p[:size_A0], p[size_A0:]
+
+        if 'x0' in fixed:
+            x = x0
+        else:
+            x, p = p[:size_x0], p[size_x0:]
+        
+        if 'w0' in fixed:
+            w = w0
+        else:
+            w, p = p[:size_w0], p[size_w0:]
+        
+        if 'y0' in fixed:
+            y = y0
+        else:
+            y = p[:size_y0]
+        return A.reshape(*shape_A0), x.reshape(*shape_x0), w.reshape(*shape_w0), y.reshape(*shape_y0)
 
     def compose_profile(x, p):
         # overall profile
@@ -149,6 +187,15 @@ def multiframe_fit(x, y, A0, x0, w0, y0):
     perr = np.sqrt(np.diagonal(pcov))
     A0, x0, w0, y0 = to_param(popt)
     A0_err, x0_err, w0_err, y0_err = to_param(perr)
+    if 'A0' in fixed:
+        A0_err = np.zeros_like(A0_err)
+    if 'x0' in fixed:
+        x0_err = np.zeros_like(x0_err)
+    if 'w0' in fixed:
+        w0_err = np.zeros_like(w0_err)
+    if 'y0' in fixed:
+        y0_err = np.zeros_like(y0_err)
+
     fit = compose_profile(x, popt)
 
     result = {

@@ -70,7 +70,7 @@ def test_multiframe_fit(A0, x0, w0, y0, x):
     rng = np.random.RandomState(0)
     A0 = rng.exponential(size=A0)
     x0 = 0.1 + rng.uniform(size=x0) * 0.8
-    w0 = rng.exponential(scale=0.1, size=w0)
+    w0 = rng.gamma(scale=0.05, shape=2.0, size=w0)
     y0 = rng.exponential(scale=0.1, size=y0)
     
     if len(x) == 1:
@@ -93,6 +93,16 @@ def test_multiframe_fit(A0, x0, w0, y0, x):
     assert np.allclose(result['A0'], A0, atol=0.1)
     assert np.allclose(result['x0'], x0, atol=0.01)
     assert np.allclose(result['w0'], w0, atol=0.01)
+    assert np.allclose(result['y0'], y0, atol=0.01)
+
+    # test fixed
+    result = fit.multiframe_fit(x, y, A0_noise, x0_noise, w0, y0_noise, fix='w0')
+    assert np.allclose(result['A0'], A0, atol=0.1)
+    assert np.allclose(result['x0'], x0, atol=0.01)
+    assert np.allclose(result['y0'], y0, atol=0.01)
+
+    result = fit.multiframe_fit(x, y, A0_noise, x0, w0, y0_noise, fix='w0,x0')
+    assert np.allclose(result['A0'], A0, atol=0.1)
     assert np.allclose(result['y0'], y0, atol=0.01)
 
 
