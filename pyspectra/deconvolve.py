@@ -39,7 +39,6 @@ def nnls(
             alpha=regularization_parameter,
             l1_ratio=0.0,
             fit_intercept=False,
-            normalize=False,
             copy_X=True,
             positive=True,
         )
@@ -47,7 +46,6 @@ def nnls(
         reg_nnls = Lasso(
             alpha=regularization_parameter,
             fit_intercept=False,
-            normalize=False,
             copy_X=True,
             positive=True,
         )
