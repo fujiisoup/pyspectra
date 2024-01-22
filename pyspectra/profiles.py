@@ -1,7 +1,8 @@
 import os
 import numpy as np
-from scipy.special import wofz, gamma, gammaincc
+from scipy.special import wofz, gamma, gammaincc, erf, wofz, erfi
 from scipy import stats
+import warnings
 
 from .stats import normal
 
@@ -103,6 +104,46 @@ def student_t(x, df):
     Student's t-distribution with degree of freedom of df
     """
     return stats.t.pdf(x, df=df)
+
+
+def sinc(x):
+    return np.sin(np.pi * x) / (np.pi * x)
+
+
+def SincGauss(x, A, x0, delta, sigma, offset):
+    r'''
+    A convolution of a sinc function and a Gaussian.
+    sinc function: sin(pi x / delta) / (pi x)
+    gauss function: 1 / (sqrt(2 pi) sigma) exp(-(x - x0)**2 / 2 sigma**2)
+
+    Parameters
+    ----------
+    x: x axis
+    sigma: a Gaussian width relative to a scale length of sinc function
+    '''
+    return A / delta * sinc_gauss((x - x0) / delta, sigma / delta) + offset
+
+
+def sinc_gauss(x, sigma):
+    r'''
+    A convolution of a sinc function and a Gaussian.
+    https://math.stackexchange.com/questions/98176/convolution-of-gaussian-and-sinc-function
+    But using wofz(z) == exp(-z**2) erfc(-i z) instead to improve the stability
+
+    Parameters
+    ----------
+    x: x axis
+    sigma: a Gaussian width relative to a scale length of sinc function
+    '''
+    x_norm = x / (np.sqrt(2) * sigma)
+    sigma_norm = sigma / np.sqrt(2)
+    return 0.5 / (np.sqrt(2 * np.pi) * sigma) * (
+        np.exp(-np.pi**2 * sigma_norm**2) * np.real(
+            np.exp(-1.j * np.pi * x) * wofz(x_norm - 1.j * np.pi * sigma_norm)
+            -
+            np.exp(1.j * np.pi * x) * wofz(x_norm + 1.j * np.pi * sigma_norm)
+        )
+    )
 
 
 def GeneralizedVoigt1(x, A, x0, sigma, gamma, df, offset):
