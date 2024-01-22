@@ -110,6 +110,20 @@ def sinc(x):
     return np.sin(np.pi * x) / (np.pi * x)
 
 
+def SincGauss(x, A, x0, delta, sigma, offset):
+    r'''
+    A convolution of a sinc function and a Gaussian.
+    sinc function: sin(pi x / delta) / (pi x)
+    gauss function: 1 / (sqrt(2 pi) sigma) exp(-(x - x0)**2 / 2 sigma**2)
+
+    Parameters
+    ----------
+    x: x axis
+    sigma: a Gaussian width relative to a scale length of sinc function
+    '''
+    return A / delta * sinc_gauss((x - x0) / delta, sigma / delta) + offset
+
+
 def sinc_gauss(x, sigma):
     r'''
     A convolution of a sinc function and a Gaussian.
