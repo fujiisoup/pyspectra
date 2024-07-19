@@ -41,6 +41,14 @@ def nm_to_eV(nm):
     hc = H * C * 1.0e9 * J2EV  # to nm
     return hc / nm
 
+def nm_to_joule(nm):
+    return eV_to_joule(nm_to_eV(nm))
+
+
+def nm_to_Hz(nm):
+    ''' Convert nm to Hz'''
+    return C / (nm * 1e-9)
+
 
 def joule_to_eV(joule):
     """ convert joule value to eV """

@@ -106,6 +106,10 @@ def student_t(x, df):
     return stats.t.pdf(x, df=df)
 
 
+def Student_t(x, A, x0, sigma, df, offset):
+    return A * student_t((x - x0) / sigma, df) / sigma + offset
+
+
 def sinc(x):
     return np.sin(np.pi * x) / (np.pi * x)
 
