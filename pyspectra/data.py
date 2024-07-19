@@ -1,8 +1,11 @@
 import os
+import ssl
 import numpy as np
 from .atoms import ATOMIC_SYMBOLS
 from . import units, refractive_index
 
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 _default_cache_dir = os.sep.join((os.path.expanduser("~"), ".pyspectra_data"))
 

@@ -1,5 +1,6 @@
 import numpy as np
 from .atoms import ATOMIC_MASS, ATOMIC_SYMBOLS
+from . import units
 
 # light speed
 c = 2.99792458e8  # m/s
@@ -28,6 +29,14 @@ atomic_mass = mu
 # planck constant
 h = 6.62607004e-34  # planck's constant m2 kg/s
 planck_constant = h
+
+# elementary charge
+e = units.e
+elementary_charge = e
+
+# vacuum permittivity
+eps0 = 8.8541878128e-12 # F/m
+vacuum_permittivity = eps0
 
 # mass of several atoms
 def mass(symbol):
