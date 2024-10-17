@@ -278,7 +278,7 @@ class ScaleMixture:
     def weight_dist(self, x, *args, **kwargs):
         raise NotImplementedError
 
-    scale_range = (0, np.infty)  # integration range of the mixture 
+    scale_range = (0, np.inf)  # integration range of the mixture 
 
     def quad(self, x, *args, **kwargs):
         """More accurate calculation based on the numerical integration"""
