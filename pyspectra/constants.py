@@ -49,3 +49,11 @@ def mass(symbol):
 class AtomicUnit:
     a0 = h / (2 * np.pi * me * c * alpha)  # bohr radius in [m]
 
+# pressure
+def Pa_to_Torr(p):
+    '''convert Pa to Torr'''
+    return p * 0.00750062
+
+def Torr_to_Pa(torr):
+    '''convert Torr to Pa'''
+    return torr / 0.00750062
