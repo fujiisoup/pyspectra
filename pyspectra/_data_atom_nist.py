@@ -3,7 +3,8 @@ Download nist level page
 """
 from collections import OrderedDict
 from functools import total_ordering
-import urllib.request
+#import urllib.request
+import requests
 import numpy as np
 import xarray as xr
 from .atoms import ATOMIC_SYMBOLS
@@ -100,7 +101,12 @@ def get_levels(atom, nele):
     """
     url = get_level_url(atom, nele)
     print("downloading from {}".format(url))
-    contents = urllib.request.urlopen(url).read().decode("utf-8")
+    header = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.75 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest"
+    }
+    contents = requests.get(url, headers=header).text
+    #contents = urllib.request.urlopen(url, header=header).read().decode("utf-8")
     lines = contents.split("\n")
     data = _parse_levels(lines)
 
@@ -121,7 +127,12 @@ def get_lines(atom, nele, low_w='', upp_w=''):
     """
     url = get_line_url(atom, nele, low_w, upp_w)
     print("downloading from {}".format(url))
-    contents = urllib.request.urlopen(url).read().decode("utf-8")
+    header = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.75 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest"
+    }
+    #contents = urllib.request.urlopen(url, header=header).read().decode("utf-8")
+    contents = requests.get(url, headers=header).text
     lines = contents.split("\n")
     data = _parse_lines(lines)
 

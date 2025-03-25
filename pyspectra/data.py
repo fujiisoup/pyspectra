@@ -1,6 +1,7 @@
 import os
 import ssl
 import numpy as np
+import requests
 from .atoms import ATOMIC_SYMBOLS
 from . import units, refractive_index
 
@@ -173,7 +174,10 @@ def download_diatomic_molecule_nist(molecule):
         n = len(table.index)
         data = []
         
-        pandas_version = [int(v) for v in pd._version.get_versions()['version'].split('.')]
+        try:
+            pandas_version = [int(v) for v in pd._version.get_versions()['version'].split('.')]
+        except AttributeError:
+            pandas_version = [int(v) for v in pd.__version__.split('.')]
         if pandas_version[0] > 1 or (pandas_version[0] == 1 and pandas_version[1] > 3):
             # 'State', 'Te', 'ωe', 'ωexe', 'ωeye', 'Be', 'αe', 'γe', 'De', 'βe', 're', 'Trans.', 'ν00'
             float_columns = {
@@ -226,7 +230,11 @@ def download_diatomic_molecule_nist(molecule):
 
     def download(name):
         url = "https://webbook.nist.gov/cgi/cbook.cgi?Name={}&Units=SI".format(name)
-        req = urllib.request.Request(url=url)
+        header = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.75 Safari/537.36",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+        req = urllib.request.Request(url=url, headers=header)
 
         with urllib.request.urlopen(req) as f:
             lines = f.read().decode("utf-8").split("\n")
@@ -237,7 +245,12 @@ def download_diatomic_molecule_nist(molecule):
                 break
         url = "https://webbook.nist.gov" + url
         print("downloading from {}".format(url))
-        tables = pd.read_html(url, flavor="bs4", match="Diatomic constants ")
+        header = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.75 Safari/537.36",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+        r = requests.get(url, headers=header)
+        tables = pd.read_html(r.text, flavor="bs4", match="Diatomic constants ")
         ds = to_xarray(tables[0])
         ds.attrs["name"] = name
         ds.attrs["url"] = url
