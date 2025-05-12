@@ -238,54 +238,53 @@ def _parse_levels(lines):
             break
         # first ionization limit
         if items[1].lower() == "limit" and ionization_limit is None:
-            ionization_limit = _energy(items[3])
-            ionization_limit_err = _energy(items[4])
-        else:
-            # duplicate lines to take care of "J=2,3,4" representation
-            if "," in items[2]:
-                new_line = items.copy()
-                new_line[2] = items[2][items[2].find(",") + 1 :]
-                items[2] = items[2][: items[2].find(",")]
-                lines.insert(i + 1, new_line)
+            ionization_limit = _energy(items[4])
+            ionization_limit_err = _energy(items[5])
 
-            for key, item in zip(keys, items):
-                if len(item) == 0 or item[-1] == "?":
-                    data[key + "_uncertain"].append(True)
-                    item = item[:-1]
-                else:
-                    data[key + "_uncertain"].append(False)
+        # duplicate lines to take care of "J=2,3,4" representation
+        if "," in items[2]:
+            new_line = items.copy()
+            new_line[2] = items[2][items[2].find(",") + 1 :]
+            items[2] = items[2][: items[2].find(",")]
+            lines.insert(i + 1, new_line)
 
-                if key == "J":
-                    data["J"].append(_two_j(item))
-                elif key == "Term":
-                    parity, term = parity_term(item)
-                    data["parity"].append(parity)
-                    data[key].append(term)
-                elif key == "Level (eV)":
-                    eng, digit = _energy(item, return_digit=True)
-                    data["Level (eV)"].append(eng)
-                    data["Level(eV)_digits"].append(digit)
-                    if len(item) > 0:
-                        data["Level(eV)_is_predicted"].append(item[-1] == "]")
-                        data["Level(eV)_is_theoretical"].append(item[-1] == ")")
-                    else:
-                        data["Level(eV)_is_predicted"].append(True)
-                        data["Level(eV)_is_theoretical"].append(True)
-                elif key == "Uncertainty (eV)":
-                    data["Uncertainty (eV)"].append(_energy(item))
-                elif key == "Reference":  # propagate reference forward
-                    if item != "":
-                        # only consider the reference number
-                        data[key].append(item[:5])
-                    elif len(data[key]) == 0:
-                        data[key].append("missing")
-                    else:
-                        data[key].append(data[key][-1])
+        for key, item in zip(keys, items):
+            if len(item) == 0 or item[-1] == "?":
+                data[key + "_uncertain"].append(True)
+                item = item[:-1]
+            else:
+                data[key + "_uncertain"].append(False)
+
+            if key == "J":
+                data["J"].append(_two_j(item))
+            elif key == "Term":
+                parity, term = parity_term(item)
+                data["parity"].append(parity)
+                data[key].append(term)
+            elif key == "Level (eV)":
+                eng, digit = _energy(item, return_digit=True)
+                data["Level (eV)"].append(eng)
+                data["Level(eV)_digits"].append(digit)
+            elif key == "Uncertainty (eV)":
+                data["Uncertainty (eV)"].append(_energy(item))
+            elif key == 'Prefix':
+                data['Level(eV)_is_theoretical'].append(item == '(')
+                data['Level(eV)_is_predicted'].append(item == '[')
+            elif key == "Reference":  # propagate reference forward
+                if item != "":
+                    # only consider the reference number
+                    data[key].append(item[:5])
+                elif len(data[key]) == 0:
+                    data[key].append("missing")
                 else:
-                    data[key].append(item)
+                    data[key].append(data[key][-1])
+            else:
+                data[key].append(item)
 
     # convert to xarray
     energy = data.pop("Level (eV)")
+    _ = data.pop("Prefix")
+    _ = data.pop("Suffix")
 
     ds = xr.Dataset(
         data_vars={k: ("energy", it) for k, it in data.items() if k != ""},
