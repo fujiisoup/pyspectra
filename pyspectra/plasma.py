@@ -138,4 +138,4 @@ def D_parallel(ne_m3: float, Ti_eV: float, mi_kg: float):
     nu = 1.0 / tau
     Ti_J = units.eV_to_joule(Ti_eV)
     D = (Ti_J * tau) / mi_kg  # = (kT/m) * (1/nu) with kT in J
-    return D, lnL, tau, nu
+    return D

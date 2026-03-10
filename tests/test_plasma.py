@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pyspectra import fit, plasma, profiles
+from pyspectra import fit, plasma, profiles, constants
 
 
 def test_thomson():
@@ -18,7 +18,19 @@ def test_thomson():
         epsilon = (wavelength - 532) / 532
         plt.plot(epsilon, thomson, label='Te:{}, width:{}'.format(
             Te, fwhm))
-    plt.legend()
-    plt.xlim(-0.3, 0.3)
-    plt.grid()
-    plt.show()
+    # plt.legend()
+    # plt.xlim(-0.3, 0.3)
+    # plt.grid()
+    # plt.show()
+
+
+def test_Dpara():
+    ne = 1e19  # m-3
+    Ti = 500  # eV
+    lam = plasma.coulomb_log_ii_identical(ne, Ti)
+    assert np.allclose(lam, 17.01, atol=0.05)
+    tau = plasma.tau_i_nrl(ne, Ti, constants.proton_mass, lam)
+    assert np.allclose(tau, 1.374e-3, rtol=0.01)
+    Dpara = plasma.D_parallel(ne, Ti, constants.proton_mass)
+    assert np.allclose(Dpara, 6.6e7, rtol=0.1)
+    
